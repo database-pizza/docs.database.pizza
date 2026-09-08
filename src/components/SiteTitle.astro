@@ -1,0 +1,37 @@
+---
+const { siteTitleHref } = Astro.locals.starlightRoute;
+---
+
+<a href={siteTitleHref} class="docs-title" aria-label="database.pizza documentation">
+  <span class="pizza" aria-hidden="true">🍕</span>
+  <span>docs</span>
+</a>
+
+<style>
+  .docs-title {
+    align-items: center;
+    color: var(--sl-color-white);
+    display: inline-flex;
+    font-family: var(--sl-font-system);
+    font-size: 1rem;
+    font-weight: 700;
+    gap: 0.55rem;
+    letter-spacing: -0.035em;
+    text-decoration: none;
+  }
+
+  .docs-title:hover {
+    color: var(--sl-color-accent);
+  }
+
+  .docs-title:focus-visible {
+    border-radius: 0.35rem;
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 4px;
+  }
+
+  .pizza {
+    font: 1.35rem/1 system-ui, sans-serif;
+    transform: translateY(-0.02em);
+  }
+</style>

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.astro/
+.DS_Store
+public/raw/
+public/llms.txt
+public/llms-full.txt

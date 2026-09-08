@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /raw/
+Disallow: /llms-full.txt
+
+Sitemap: https://docs.database.pizza/sitemap-index.xml

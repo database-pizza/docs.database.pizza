@@ -1,0 +1,87 @@
+---
+import Default from '@astrojs/starlight/components/PageTitle.astro';
+
+const { entry } = Astro.locals.starlightRoute;
+const rawPath = `/raw/${entry.id || 'index'}.md`;
+---
+
+<Default><slot /></Default>
+<div class="page-actions" data-page-actions data-raw-path={rawPath}>
+  <button type="button" data-copy-page aria-label="Copy this page as Markdown">
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15">
+      <path d="M8 7V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-2M5 7h9a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
+    </svg>
+    <span data-copy-label>Copy page</span>
+  </button>
+  <a href={rawPath} target="_blank" rel="noreferrer">View Markdown</a>
+</div>
+
+<script>
+  document.addEventListener('click', async (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-copy-page]');
+    if (!button) return;
+
+    const actions = button.closest<HTMLElement>('[data-page-actions]');
+    const label = button.querySelector<HTMLElement>('[data-copy-label]');
+    const rawPath = actions?.dataset.rawPath;
+    if (!rawPath || !label) return;
+
+    try {
+      const response = await fetch(rawPath);
+      if (!response.ok) throw new Error('Markdown source unavailable');
+      await navigator.clipboard.writeText(await response.text());
+      label.textContent = 'Copied';
+    } catch {
+      label.textContent = 'Copy failed';
+    }
+    window.setTimeout(() => (label.textContent = 'Copy page'), 1600);
+  });
+</script>
+
+<style>
+  .page-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-block: 1rem 0;
+  }
+
+  button,
+  a {
+    align-items: center;
+    background: var(--sl-color-bg-nav);
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    color: var(--sl-color-gray-2);
+    cursor: pointer;
+    display: inline-flex;
+    font: 600 0.72rem/1 var(--sl-font-system-mono);
+    gap: 0.45rem;
+    min-height: 2rem;
+    padding: 0.48rem 0.68rem;
+    text-decoration: none;
+    transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+  }
+
+  button:hover,
+  a:hover {
+    background: var(--sl-color-gray-6);
+    border-color: var(--sl-color-accent);
+    color: var(--sl-color-white);
+  }
+
+  button:focus-visible,
+  a:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+
+  svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+  }
+</style>

@@ -1,0 +1,65 @@
+app.database.pizza {
+	header X-Robots-Tag "noindex, nofollow"
+
+	handle /api/* {
+		reverse_proxy localhost:8081
+	}
+	handle {
+		reverse_proxy localhost:5173
+	}
+}
+
+db.database.pizza {
+	header X-Robots-Tag "noindex, nofollow"
+	reverse_proxy localhost:8081
+}
+
+www.database.pizza {
+	redir https://database.pizza{uri} permanent
+}
+
+database.pizza {
+	root * /home/pizzadatabase/database.pizza
+	encode zstd gzip
+
+	header {
+		Permissions-Policy "camera=(), geolocation=(), microphone=()"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+	}
+
+	file_server
+
+	handle_errors {
+		rewrite * /404.html
+		file_server
+	}
+}
+
+docs.database.pizza {
+	root * /home/pizzadatabase/docs.database.pizza/current
+	encode zstd gzip
+
+	@immutable path /_astro/* /pagefind/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+	@plainText path_regexp ^/(raw/.*\.md|llms\.txt|llms-full\.txt)$
+	header @plainText Content-Type "text/plain; charset=utf-8"
+
+	header {
+		Permissions-Policy "camera=(), geolocation=(), microphone=()"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+	}
+
+	file_server
+
+	handle_errors {
+		rewrite * /404.html
+		file_server
+	}
+}
+
+import /home/pizzadatabase/testmarket/Caddyfile
+import /home/pizzadatabase/pizza-admin/Caddyfile
