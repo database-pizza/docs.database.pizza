@@ -41,12 +41,16 @@ Many drivers run introspection queries on connect. PizzaSQL intercepts and emula
 - `SHOW server_version` / `server_encoding` / `client_encoding`
 - `SELECT ... FROM information_schema.tables / columns / table_constraints / key_column_usage`
 - `SELECT ... FROM pg_tables / pg_indexes`
+- `SELECT ... FROM sqlite_master` / `sqlite_schema` — read-only synthesized rows for SQLite migrators
+- `PRAGMA index_list` / `index_info` / `table_xinfo` — answered from the durable schema
 
-These are generated from the PizzaSQL schema, not a real PostgreSQL catalog. Filtering (`WHERE table_name = 'x'`, `WHERE schemaname = ...`) is recognized for simple equality patterns; other clauses (joins, subqueries against catalog tables) are not supported. The catalog is a **read-only compatibility shim**, not a queryable schema.
+These are generated from the PizzaSQL schema, not a real PostgreSQL or SQLite catalog. Filtering (`WHERE table_name = 'x'`, `WHERE schemaname = ...`) is recognized for simple equality patterns; other clauses (joins, subqueries against catalog tables) are not supported. The catalog is a **read-only compatibility shim**, not a queryable schema.
 
 ### Type mapping on results
 
-Result columns are advertised with a small OID mapping: `INTEGER`/`INT` → `int4` (23), `TEXT`/`VARCHAR`/`CHAR` → `text` (25), `REAL`/`FLOAT` → `float4` (700), `DOUBLE` → `float8` (701), `BOOLEAN` → `bool` (16), `BLOB` → `bytea` (17), anything else → `text`. Values are sent in text format.
+Result columns are advertised with a small OID mapping: `INTEGER`/`INT` → `int4` (23), `BIGINT` → `int8` (20), `TEXT`/`VARCHAR`/`CHAR`/`UUID` → `text` (25), `REAL`/`FLOAT` → `float4` (700), `DOUBLE` → `float8` (701), `BOOLEAN` → `bool` (16), `BLOB` → `bytea` (17), `DATETIME`/`TIMESTAMP` → `timestamptz` (1184), anything else → `text`. Values are sent in text format; datetime values are exchanged as UTC RFC3339 so `timestamptz` decodes directly.
+
+Type metadata is populated only for **single-table direct column projections** (a column reference, an alias, or `SELECT *`), derived from schema metadata rather than row values so it holds even for empty results. Expressions, joins, multi-table queries, and unknown columns still report `TEXT` (25). A `UUID` column is stored as text and reports `text` (25), not the native PostgreSQL `uuid` OID. The advertised OID reflects the **declared** column type (`INTEGER` stays `int4`, for example) and only guides client decoding — it does not make values strictly typed: storage remains SQLite-style dynamic affinity.
 
 ### Protocol hardening
 

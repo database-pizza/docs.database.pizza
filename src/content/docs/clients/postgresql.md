@@ -119,6 +119,8 @@ conn, err := pgx.Connect(ctx,
     "postgresql://u:pz_live_REPLACE_ME@db.database.pizza:5432/acme%2Fproduction?sslmode=disable")
 ```
 
+pgx decodes the type metadata advertised for single-table direct column selects: `BIGINT` arrives as `int64` and `DATETIME`/`TIMESTAMP` columns arrive as `time.Time` (UTC, via `timestamptz`). Expressions and joins still report `TEXT`. An experimental Gogs fork uses a `pgx`-backed `database/sql` driver against a local PizzaSQL source build only — it is not a deployed configuration (see [Compatibility](/sql-reference/compatibility/)).
+
 ## Placeholders
 
 PizzaSQL accepts both `?` (SQLite style) and `$1`, `$2` (PostgreSQL style) placeholders. Prefer the style your driver parameterizes natively — most Postgres drivers use `$1`, `$2`.

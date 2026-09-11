@@ -33,7 +33,7 @@ This is substring-based and case-insensitive. `VARCHAR(255)`, `TEXT`, `NCHAR`, a
 | `BLOB` | BLOB | stored as a string in practice |
 | `BOOLEAN`, `BOOL` | BOOLEAN | stored as 1/0 |
 
-There is no `ARRAY`, `JSONB`-specific, `UUID`, `SERIAL`, or `ENUM` type. There are no schemas or user-defined types.
+There is no `ARRAY`, `JSONB`-specific, `SERIAL`, or `ENUM` type. There are no schemas or user-defined types. `UUID` is accepted as a type name but is stored with **TEXT affinity** — it is a plain text column with no native PostgreSQL UUID semantics.
 
 ## How values are actually stored
 
@@ -61,6 +61,7 @@ Values are coerced on use, not on insert. The key rules:
 Every row carries an implicit **`_rowid_`**, even when no `INTEGER PRIMARY KEY` is declared:
 
 - `rowid`, `oid`, and `_rowid_` all refer to the same value.
+- An **explicit column** named `rowid`, `oid`, or `_rowid_` takes precedence over the hidden rowid alias, matching SQLite — so a table with a real `oid TEXT` column resolves `oid` to that text column, not the integer rowid.
 - `INTEGER PRIMARY KEY` (exactly an integer type, single column) **aliases the rowid** — the primary-key value *is* the rowid, and inserting without a value auto-assigns the next one.
 - Any other primary key (e.g. `TEXT PRIMARY KEY`, or a table-level PK) is a normal column; the rowid is a separate, invisible counter maintained in parallel.
 - `_rowid_` is not included in `SELECT *`; reference it explicitly (`SELECT rowid, * FROM t`).

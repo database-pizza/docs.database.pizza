@@ -60,7 +60,7 @@ INSERT INTO table ... ON CONFLICT [(pk)] DO UPDATE SET col = expr, ...;
   - `INSERT OR REPLACE` deletes the conflicting row and inserts the new one.
   - `INSERT OR FAIL`/`OR ABORT` abort on the first duplicate.
   - `ON CONFLICT (target) DO NOTHING` / `DO UPDATE SET ...` work only when the conflict is on the primary key; the `(target)` list must name the PK column (or be omitted).
-- Auto-generated integer primary keys (and the implicit rowid) are assigned when no PK value is supplied. There is **no `RETURNING`** and no way to read back the generated id in the same statement; use `SELECT last_insert_rowid()`-style patterns with caution (see [Functions](/sql-reference/functions/) — the rowid functions are not implemented).
+- Auto-generated integer primary keys (and the implicit rowid) are assigned when no PK value is supplied. There is **no `RETURNING`**, but `SELECT last_insert_rowid()` returns the rowid of the most recent successful `INSERT` on this connection (see [Functions](/sql-reference/functions/)).
 
 ## UPDATE and DELETE
 
@@ -87,9 +87,10 @@ CREATE TABLE [IF NOT EXISTS] table (
 ```
 
 - `IF NOT EXISTS` silently succeeds if the table already exists.
-- Only `PRIMARY KEY`, `NOT NULL`, and `DEFAULT` have an effect. `AUTOINCREMENT` is accepted but adds no behavior; `UNIQUE`, `CHECK`, and `FOREIGN KEY` are parsed and discarded — see [Constraints](/sql-reference/constraints/).
+- `PRIMARY KEY`, `NOT NULL`, and `DEFAULT` have an effect; `AUTOINCREMENT` is accepted but adds no behavior. Inline and table-level `UNIQUE` constraints are materialized into unique indexes and enforced on the core write paths — see [Constraints](/sql-reference/constraints/). `CHECK` and `FOREIGN KEY` are still parsed and discarded.
 - A table-level `PRIMARY KEY (a, b)` uses the first named column as the primary key; composite keys are not truly supported.
-- `DEFAULT expr` is evaluated when the table is created, so it must be a constant expression.
+- `DEFAULT expr` is evaluated when the table is created, so it must be a constant expression. Signed numeric literals (`DEFAULT -1`, `DEFAULT +5`, `DEFAULT (-7)`) are accepted.
+- A bare `NULL` column specifier is accepted as a no-op (columns are nullable by default); `NOT NULL` still applies whenever it appears.
 - `AUTOINCREMENT` is accepted but has no extra behaviour over a plain `INTEGER PRIMARY KEY`.
 
 ## ALTER TABLE
@@ -116,7 +117,7 @@ DROP VIEW [IF EXISTS] view;
 ```
 
 - Index definitions persist, but index entries are rebuilt in memory and only used for single-column equality lookups — see [Indexes](/engine/indexes/).
-- `UNIQUE` indexes are recorded as unique in the catalog but **uniqueness is not enforced**.
+- `UNIQUE` indexes are recorded as unique in the catalog **and enforced** on the core write paths via validating scans; `CREATE UNIQUE INDEX` rejects a table that already contains duplicate non-`NULL` values.
 - Views are **connection-local and in-memory**: they exist only within the connection that created them and are not persisted or shared. See [Catalog & schema](/internals/catalog/).
 
 ## Transactions
@@ -138,6 +139,9 @@ ROLLBACK TO name;
 
 ```sql
 PRAGMA table_info(t);      -- column list for table t
+PRAGMA table_xinfo(t);     -- table_info columns plus a trailing hidden flag
+PRAGMA index_list(t);      -- indexes on table t (seq, name, unique, origin, partial)
+PRAGMA index_info(idx);    -- columns of index idx (seqno, cid, name)
 PRAGMA table_list;         -- all tables
 PRAGMA database_list;      -- attached databases
 PRAGMA version;            -- engine version
@@ -146,8 +150,13 @@ EXPLAIN stmt;              -- simplified opcode listing
 EXPLAIN QUERY PLAN stmt;   -- SCAN/FILTER/SORT/LIMIT description
 ```
 
-- Only the four `PRAGMA` forms above are implemented; any other pragma name errors.
+- `table_xinfo`, `index_list`, and `index_info` exist to satisfy SQLite migrators (GORM/XORM); they are answered from the durable schema, not a real SQLite file.
+- Only the `PRAGMA` forms above are implemented; any other pragma name errors.
 - `EXPLAIN` output is **illustrative only** — it does not reflect the real execution engine (there is no cost-based planner; see [Query lifecycle](/internals/query-lifecycle/)).
+
+## SQLite catalog tables
+
+`sqlite_master` and `sqlite_schema` are emulated as **read-only** virtual tables whose rows are synthesized from the durable schema (`type`, `name`, `tbl_name`, `rootpage`, `sql`). Single-table `SELECT` queries against them work for migrator introspection; they are not real writable SQLite catalog tables and are not persisted. See [PostgreSQL protocol](/internals/postgres-protocol/).
 
 ## ATTACH / DETACH DATABASE
 

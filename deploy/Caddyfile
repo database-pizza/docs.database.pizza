@@ -63,3 +63,10 @@ docs.database.pizza {
 
 import /home/pizzadatabase/testmarket/Caddyfile
 import /home/pizzadatabase/pizza-admin/Caddyfile
+
+git.database.pizza {
+	tls internal
+	encode zstd gzip
+	header X-Content-Type-Options nosniff
+	reverse_proxy 127.0.0.1:3001
+}

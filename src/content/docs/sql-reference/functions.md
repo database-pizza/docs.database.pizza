@@ -100,6 +100,21 @@ Date/time functions accept SQLite-style time values and modifiers:
 | `pizzasql_version()` | engine build version |
 | `sqlite_version()` | same value, for SQLite compatibility |
 
+### Session state
+
+These mirror SQLite's connection-local counters and are tracked per connection:
+
+| Function | Description |
+| --- | --- |
+| `last_insert_rowid()` | rowid of the most recent successful `INSERT` on this connection; `0` before any insert |
+| `changes()` | number of rows changed by the most recent `INSERT`/`UPDATE`/`DELETE` |
+| `total_changes()` | total rows changed since this connection opened; monotonic, never decremented by `ROLLBACK` |
+
+Notes:
+
+- `last_insert_rowid()` reflects the actual generated rowid (not a naive counter or `MAX`), including for multi-row `INSERT` and `INSERT ... SELECT`, and holds across `ROLLBACK`.
+- `total_changes()` is incremented by every completed DML statement even when the change is later undone, matching SQLite.
+
 ## Declared but not implemented
 
 These names are recognized by the parser/analyzer but **return `NULL` when called**. Treat them as unsupported:
@@ -110,10 +125,7 @@ These names are recognized by the parser/analyzer but **return `NULL` when calle
 - `iif`
 - `quote`
 - `total`, `group_concat`
-- `last_insert_rowid`, `changes`, `total_changes`
 - `randomblob` is implemented in the executor but not registered with the analyzer, so calls are currently rejected as an unknown function.
-
-The `last_insert_rowid` gap matters in practice: after an `INSERT` with an auto-generated key, there is no built-in function to retrieve the generated id. If you need it, insert an explicit value instead of relying on auto-generation.
 
 ## Caveats
 

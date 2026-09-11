@@ -52,7 +52,7 @@ If no index applies, the engine performs a **full table scan** (it reads every r
 
 ## UNIQUE indexes
 
-`CREATE UNIQUE INDEX` stores the `unique` flag in the definition (it appears in `pg_indexes` introspection), but **uniqueness is not enforced**. Duplicate values are allowed. See [Constraints](/sql-reference/constraints/).
+`CREATE UNIQUE INDEX` stores the `unique` flag in the definition (it appears in `pg_indexes` introspection) **and enforces it** on the core write paths via validating scans; creating one against a table with existing duplicate non-`NULL` values is rejected. `NULL` values are exempt, matching SQLite. See [Constraints](/sql-reference/constraints/).
 
 ## Interaction with the row cache
 

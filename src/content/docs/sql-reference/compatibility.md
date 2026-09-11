@@ -32,12 +32,12 @@ This page describes behavior verified in the current source and tests. The SQLit
 
 Do not rely on the following behavior yet:
 
-- `UNIQUE`, `CHECK`, and foreign-key declarations may be accepted but are not enforced.
+- `CHECK` and foreign-key declarations may be accepted but are not enforced. `UNIQUE` constraints and unique indexes are enforced on the core write paths, but only through validating scans — this is not a durable uniqueness claim and does not imply full SQLite or PostgreSQL concurrency semantics. `UNIQUE` is materialized only when a table is created; tables created before this support are not retroactively enforced after an upgrade.
 - Composite primary keys retain only their first column.
 - `RIGHT JOIN`, `FULL JOIN`, `JOIN ... USING`, and `NATURAL JOIN` may parse but do not execute correctly.
 - DDL changes such as `CREATE TABLE` are not rolled back by `ROLLBACK`.
 - `GROUP_CONCAT` and `TOTAL` are not safe to execute.
-- PostgreSQL result columns may be reported as `TEXT` regardless of their SQL type.
+- Result column type metadata is only reported for single-table direct column projections; expressions, joins, and unknown columns are still reported as `TEXT`.
 
 Unsupported syntax normally returns an error. The items above are called out separately because accepting syntax without enforcing its semantics can cause incorrect application behavior.
 
@@ -96,8 +96,8 @@ Unsupported syntax normally returns an error. The items above are called out sep
 | Single-column primary keys | Supported | Supported | Supported |
 | Composite primary keys | Unsafe; only the first column is retained | Supported | Supported |
 | `NOT NULL` | Supported | Supported | Supported |
-| `UNIQUE` constraints | Unsafe; parsed but not enforced | Supported | Supported |
-| Unique indexes | Unsafe; uniqueness is not enforced | Supported | Supported |
+| `UNIQUE` constraints | Partial; enforced on core write paths via validating scans | Supported | Supported |
+| Unique indexes | Partial; enforced on core write paths via validating scans | Supported | Supported |
 | `CHECK` constraints | Unsafe; parsed but not enforced | Supported | Supported |
 | Foreign keys | Unsafe; parsed but not enforced | Supported when enabled | Supported |
 | Literal defaults | Partial | Supported | Supported |
@@ -123,7 +123,7 @@ PizzaSQL accepts many familiar type names but does not implement PostgreSQL's st
 | `NUMERIC(p,s)` precision enforcement | Unsupported | Unsupported | Supported |
 | Native date and time types | Unsupported; values remain dynamically typed | Unsupported | Supported |
 | JSON values, functions, and operators | Unsupported; `JSON` names have no JSON semantics | Available with SQLite JSON support | Supported with `JSON` and `JSONB` |
-| Arrays, UUIDs, enums, and intervals | Unsupported | Unsupported as native types | Supported |
+| Arrays, UUIDs, enums, and intervals | Partial; `UUID` is accepted as a text alias with no native PostgreSQL UUID semantics | Unsupported as native types | Supported |
 | `CAST` to integer, real, and text | Supported | Supported | Supported |
 | Other `CAST` targets | Partial; many targets are no-ops | Affinity based | Strictly typed |
 | PostgreSQL `::` casts | Unsupported | Unsupported | Supported |
@@ -144,6 +144,7 @@ PizzaSQL accepts many familiar type names but does not implement PostgreSQL's st
 | Common math functions | Partial | Supported | Supported |
 | `CEIL`, `FLOOR`, and `MOD` | Unsafe; declared but currently return `NULL` | Supported | Supported |
 | SQLite date and time functions | Supported | Supported | Different function set |
+| `last_insert_rowid()`, `changes()`, `total_changes()` | Supported; session-local | Supported | Unsupported |
 | PostgreSQL date and time functions | Unsupported | Unsupported | Supported |
 | JSON functions | Unsupported | Available with SQLite JSON support | Supported |
 | Window functions | Unsupported | Supported | Supported |
@@ -172,7 +173,7 @@ PostgreSQL wire compatibility allows some PostgreSQL clients to connect. It does
 | Text parameters and results | Supported | Not applicable | Supported |
 | Binary parameters | Partial; limited boolean and integer support | Not applicable | Supported |
 | Binary results | Unsupported | Not applicable | Supported |
-| Correct result type OIDs | Unsafe; normal query columns may be reported as `TEXT` | Not applicable | Supported |
+| Correct result type OIDs | Partial; single-table direct column projections report typed OIDs, expressions and joins report `TEXT` | Not applicable | Supported |
 | PostgreSQL TLS | Unsupported | Not applicable | Supported |
 | PostgreSQL SCRAM and MD5 authentication | Unsupported | Not applicable | Supported |
 | `information_schema` | Partial emulation | Unsupported | Supported |
@@ -185,7 +186,7 @@ PostgreSQL wire compatibility allows some PostgreSQL clients to connect. It does
 | ORMs and migration frameworks | Unverified | Varies | Supported |
 | `psql` schema introspection commands | Partial | Not applicable | Supported |
 
-Because the wire is PostgreSQL-compatible, drivers may issue introspection queries such as `information_schema`, `pg_catalog`, `SELECT version()`, or `SHOW server_version` on connection. PizzaSQL emulates a small subset of these so basic clients can start. See [PostgreSQL protocol](/internals/postgres-protocol/).
+Because the wire is PostgreSQL-compatible, drivers may issue introspection queries such as `information_schema`, `pg_catalog`, `SELECT version()`, or `SHOW server_version` on connection. PizzaSQL emulates a small subset of these so basic clients can start. SQLite-style migrators are also accommodated with a read-only `sqlite_master`/`sqlite_schema` emulation and the `index_list`, `index_info`, and `table_xinfo` pragmas. See [PostgreSQL protocol](/internals/postgres-protocol/).
 
 ## Managed service differences
 
@@ -207,10 +208,22 @@ The PizzaSQL repository includes the SQLite SQLLogicTest corpus and a custom run
 
 Compatibility claims should therefore be tied to explicit automated tests, not only to the presence or size of the corpus.
 
+## Experimental Gogs backend evidence
+
+An experimental Gogs fork drives PizzaSQL through a custom `pgx`-backed `database/sql` driver that emits SQLite-dialect SQL over the PostgreSQL wire. This is a **local source-build exercise, not a deployed or production configuration**, and transport TLS remains unavailable. Its opt-in smoke test passes end to end against local engine binaries, covering:
+
+- Full fresh-start schema installation and table creation through GORM and XORM, migrations seeding, and XORM `Sync2`.
+- The install flow end to end: `GET /install` returns `200`, `POST /install` redirects with `302`, and the admin user is inserted and reachable through `/user/login`.
+- User, repository, access-token, and permission writes through the public stores, cross-ORM reads, uniqueness rejection, and transaction rollback.
+- Pool close/reopen and full engine-process plus PizzaKV restart against the same `.pkvdb` file, confirming installation and persistence.
+- Core LFS object metadata: multiple objects per repository, the same OID in a different repository kept distinct, duplicate `(repo_id, oid)` rejection, and reads back with a real `time.Time` `created_at`.
+
+This is **not** evidence of complete Gogs compatibility or of the Git LFS transfer path — actual Git LFS upload, SSH, and push have not been tested yet, and the full Gogs test suite has not passed against PizzaSQL.
+
 ## Advice for porting
 
 1. Use explicit `INNER`, `LEFT`, and `CROSS` joins with `ON` conditions.
-2. Enforce uniqueness, checks, and referential integrity in the application until engine enforcement lands.
+2. Enforce checks and referential integrity in the application. Uniqueness is enforced on the core write paths, but keep application-level checks for anything with stricter concurrency or DDL needs.
 3. Use a single-column primary key.
 4. Avoid `AUTOINCREMENT`, expression defaults, and `DEFAULT CURRENT_TIMESTAMP` for semantic behavior.
 5. Use `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX`; verify other functions against the [function reference](/sql-reference/functions/).
