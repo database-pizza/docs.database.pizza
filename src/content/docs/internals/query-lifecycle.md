@@ -7,7 +7,7 @@ This page traces a single statement from bytes to result. It explains *why* cert
 
 ## 1. Lex and parse
 
-The SQL string is tokenized and parsed into an AST. Both steps are pure and fail fast with a syntax error for anything the grammar doesn't cover (CTEs, window functions, `RETURNING`, etc.). A statement that parses is guaranteed to be one the engine at least *recognizes*, even if it later turns out to be only partially implemented.
+The SQL string is tokenized and parsed into an AST. Both steps are pure and fail fast with a syntax error for anything the grammar doesn't cover (`RETURNING`, `WITHOUT ROWID`, triggers, etc.). A statement that parses is guaranteed to be one the engine at least *recognizes*, even if it later turns out to be only partially implemented.
 
 Over the PostgreSQL protocol, a multi-statement batch is parsed *in full before execution begins*, so an unsupported trailing statement doesn't leave earlier writes half-committed.
 

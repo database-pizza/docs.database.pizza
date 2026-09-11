@@ -170,4 +170,4 @@ DETACH DATABASE alias;
 
 ## Not supported
 
-These are rejected at parse time: `WITH` (CTEs), window functions, `RETURNING`, `WITHOUT ROWID`, `TRUNCATE`, `UPSERT` (beyond the `OR`/`ON CONFLICT` forms), triggers, and `CREATE SCHEMA`/roles.
+These are rejected at parse time: `RETURNING`, `WITHOUT ROWID`, `TRUNCATE`, `UPSERT` (beyond the `OR`/`ON CONFLICT` forms), triggers, and `CREATE SCHEMA`/roles. Window functions other than `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)` are also rejected.

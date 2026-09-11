@@ -49,6 +49,7 @@ Unsupported syntax normally returns an error. The items above are called out sep
 | `WHERE` | Supported | Supported | Supported |
 | `DISTINCT` | Supported | Supported | Supported |
 | `ORDER BY`, `LIMIT`, and `OFFSET` | Supported | Supported | Supported |
+| `ORDER BY ... NULLS FIRST/LAST` | Supported | Supported | Supported |
 | `GROUP BY` and `HAVING` | Supported; permissive SQLite-style grouping | Supported | Supported; stricter grouping rules |
 | `INNER JOIN` | Supported | Supported | Supported |
 | `LEFT JOIN` | Supported | Supported | Supported |
@@ -63,9 +64,9 @@ Unsupported syntax normally returns an error. The items above are called out sep
 | Subqueries in `FROM` | Supported | Supported | Supported |
 | `UNION` and `UNION ALL` | Supported | Supported | Supported |
 | `INTERSECT` and `EXCEPT` | Supported; distinct form only | Supported | Supported, including `ALL` |
-| Common table expressions (`WITH`) | Unsupported | Supported | Supported |
-| Recursive common table expressions | Unsupported | Supported | Supported |
-| Window functions | Unsupported | Supported | Supported |
+| Common table expressions (`WITH`) | Supported | Supported | Supported |
+| Recursive common table expressions | Supported | Supported | Supported |
+| Window functions | Partial; `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)` only | Supported | Supported |
 
 ## Writes
 
@@ -76,8 +77,8 @@ Unsupported syntax normally returns an error. The items above are called out sep
 | `UPDATE` | Supported | Supported | Supported |
 | `DELETE` | Supported | Supported | Supported |
 | `INSERT OR IGNORE`, `REPLACE`, and related SQLite conflict modes | Supported | Supported | Different syntax |
-| `ON CONFLICT DO NOTHING` | Partial; primary-key conflicts only | Supported for unique constraints | Supported for unique constraints |
-| `ON CONFLICT DO UPDATE` | Partial; primary-key conflicts only | Supported for unique constraints | Supported for unique constraints |
+| `ON CONFLICT DO NOTHING` | Supported for primary-key and unique-index targets | Supported for unique constraints | Supported for unique constraints |
+| `ON CONFLICT DO UPDATE` | Supported for primary-key and unique-index targets, including `excluded` | Supported for unique constraints | Supported for unique constraints |
 | `RETURNING` | Unsupported | Supported since 3.35 | Supported |
 | `TRUNCATE` | Unsupported | Unsupported | Supported |
 
@@ -147,7 +148,7 @@ PizzaSQL accepts many familiar type names but does not implement PostgreSQL's st
 | `last_insert_rowid()`, `changes()`, `total_changes()` | Supported; session-local | Supported | Unsupported |
 | PostgreSQL date and time functions | Unsupported | Unsupported | Supported |
 | JSON functions | Unsupported | Available with SQLite JSON support | Supported |
-| Window functions | Unsupported | Supported | Supported |
+| Window functions | Partial; `ROW_NUMBER()` only | Supported | Supported |
 
 ## Transactions
 
@@ -208,9 +209,13 @@ The PizzaSQL repository includes the SQLite SQLLogicTest corpus and a custom run
 
 Compatibility claims should therefore be tied to explicit automated tests, not only to the presence or size of the corpus.
 
-## Experimental Gogs backend evidence
+## Experimental backend evidence
 
-An experimental Gogs fork drives PizzaSQL through a custom `pgx`-backed `database/sql` driver that emits SQLite-dialect SQL over the PostgreSQL wire. This is a **local source-build exercise, not a deployed or production configuration**, and transport TLS remains unavailable. Its opt-in smoke test passes end to end against local engine binaries, covering:
+Both of these are **local source-build exercises, not deployed or production configurations**, and transport TLS remains unavailable. They are the concrete integration targets for the SQLite dialect and PostgreSQL wire protocol.
+
+### Gogs
+
+An experimental Gogs fork drives PizzaSQL through a custom `pgx`-backed `database/sql` driver that emits SQLite-dialect SQL over the PostgreSQL wire. Its opt-in smoke test passes end to end against local engine binaries, covering:
 
 - Full fresh-start schema installation and table creation through GORM and XORM, migrations seeding, and XORM `Sync2`.
 - The install flow end to end: `GET /install` returns `200`, `POST /install` redirects with `302`, and the admin user is inserted and reachable through `/user/login`.
@@ -219,6 +224,18 @@ An experimental Gogs fork drives PizzaSQL through a custom `pgx`-backed `databas
 - Core LFS object metadata: multiple objects per repository, the same OID in a different repository kept distinct, duplicate `(repo_id, oid)` rejection, and reads back with a real `time.Time` `created_at`.
 
 This is **not** evidence of complete Gogs compatibility or of the Git LFS transfer path — actual Git LFS upload, SSH, and push have not been tested yet, and the full Gogs test suite has not passed against PizzaSQL.
+
+### Vikunja
+
+An experimental Vikunja fork uses the same driver shape (a `database/sql` driver plus an XORM dialect mapping) but exercises a larger schema and different queries. Its full migration suite ran against a local engine, and registration, login, project CRUD, and task CRUD — create, update, list, delete, and the notification path — worked through the HTTP API. Supporting it required engine work for:
+
+- Non-recursive and recursive common table expressions.
+- `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)`.
+- `ORDER BY ... NULLS FIRST/LAST`.
+- `ON CONFLICT (cols) DO UPDATE` on unique indexes, including `excluded`.
+- Correlated `EXISTS` in a single-table `WHERE`.
+
+There is no committed automated Vikunja integration test yet, so this is a manual validation rather than a repeatable gate.
 
 ## Advice for porting
 

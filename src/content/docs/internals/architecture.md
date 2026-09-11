@@ -53,7 +53,7 @@ PizzaSQL opens a pool of connections to PizzaKV and serializes each SQL-level op
 ## Key design choices and their consequences
 
 - **Row storage**: rows are encoded with a versioned binary codec (legacy JSON fallback), which keeps the engine simple and flexible but means full scans decode the entire table. The dominant cost of a full scan is row decoding, not the key-value read.
-- **Hand-written parser**: no parser generator; the grammar is explicit and limited (which is why features like CTEs and window functions are simply absent).
+- **Hand-written parser**: no parser generator; the grammar is explicit and limited. CTEs and `ROW_NUMBER()` are supported, but many PostgreSQL constructs are absent by design.
 - **SQLite affinity**: dynamic typing rather than a strict type system (see [Data types](/sql-reference/data-types/)).
 - **No planner**: index use is a single heuristic, not a cost-based decision (see [Query lifecycle](/internals/query-lifecycle/)).
 

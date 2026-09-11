@@ -56,8 +56,7 @@ EXPLAIN ...; EXPLAIN QUERY PLAN ...;
 
 PizzaSQL is intentionally small. These features are not implemented at all — they will be rejected by the parser, not silently mishandled:
 
-- **Common table expressions** — no `WITH ... AS (...)`.
-- **Window functions** — no `OVER (...)`, `ROW_NUMBER()`, `PARTITION BY`.
+- **Window functions** — only `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)`; other window functions and frame clauses are not implemented.
 - **`RETURNING`** — `INSERT`/`UPDATE`/`DELETE` do not return rows.
 - **`WITHOUT ROWID`** tables.
 - **Triggers**, **stored procedures**, **prepared SQL in the engine** (the PG driver handles parameters client-side).
