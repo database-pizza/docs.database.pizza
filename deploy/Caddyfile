@@ -70,3 +70,10 @@ git.database.pizza {
 	header X-Content-Type-Options nosniff
 	reverse_proxy 127.0.0.1:3001
 }
+
+tasks.database.pizza {
+	tls admin@database.pizza
+	encode zstd gzip
+	header X-Content-Type-Options nosniff
+	reverse_proxy 127.0.0.1:3456
+}
