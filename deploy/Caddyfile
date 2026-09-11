@@ -1,9 +1,6 @@
 app.database.pizza {
 	header X-Robots-Tag "noindex, nofollow"
 
-	handle /count* {
-		reverse_proxy 127.0.0.1:3002
-	}
 	handle /api/* {
 		reverse_proxy localhost:8081
 	}
@@ -32,12 +29,7 @@ database.pizza {
 		X-Frame-Options "DENY"
 	}
 
-	handle /count* {
-		reverse_proxy 127.0.0.1:3002
-	}
-	handle {
-		file_server
-	}
+	file_server
 
 	handle_errors {
 		rewrite * /404.html
@@ -76,24 +68,14 @@ git.database.pizza {
 	tls admin@database.pizza
 	encode zstd gzip
 	header X-Content-Type-Options nosniff
-	handle /count* {
-		reverse_proxy 127.0.0.1:3002
-	}
-	handle {
-		reverse_proxy 127.0.0.1:3001
-	}
+	reverse_proxy 127.0.0.1:3001
 }
 
 tasks.database.pizza {
 	tls admin@database.pizza
 	encode zstd gzip
 	header X-Content-Type-Options nosniff
-	handle /count* {
-		reverse_proxy 127.0.0.1:3002
-	}
-	handle {
-		reverse_proxy 127.0.0.1:3456
-	}
+	reverse_proxy 127.0.0.1:3456
 }
 
 goatcounter.database.pizza {
