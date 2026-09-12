@@ -124,6 +124,13 @@ export default defineConfig({
           ],
         },
         {
+          label: 'Releases',
+          items: [
+            { label: 'Release policy', link: '/releases/' },
+            { label: 'Release notes', link: '/releases/release-notes/' },
+          ],
+        },
+        {
           label: 'For AI Tools',
           items: [
             { label: 'Using these docs with AI', link: '/ai/' },

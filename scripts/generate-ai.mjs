@@ -50,7 +50,7 @@ for (const file of files) {
 
   await mkdir(path.dirname(rawPath), { recursive: true });
   await writeFile(rawPath, source);
-  pages.push({ body, description, route, source, title });
+  pages.push({ body, description, rawRelative: relative, route, source, title });
 }
 
 const index = [
@@ -62,7 +62,7 @@ const index = [
   '',
   '## Documentation',
   '',
-  ...pages.map(({ description, route, title }) => `- [${title || route}](https://docs.database.pizza/raw${route === '/' ? '/index.md' : `${route.slice(0, -1)}.md`})${description ? `: ${description}` : ''}`),
+  ...pages.map(({ description, rawRelative, title }) => `- [${title || rawRelative}](https://docs.database.pizza/raw/${rawRelative})${description ? `: ${description}` : ''}`),
   '',
   '## Important context',
   '',

@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    name: Check, build, and verify generated documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+
+      - name: Install Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type and content checks
+        run: npm run check
+
+      - name: Build site
+        run: npm run build
+
+      - name: Verify generated AI outputs and release pages
+        run: |
+          test -f public/llms.txt
+          test -f public/llms-full.txt
+          test -d public/raw
+          test -f dist/index.html
+          test -f dist/releases/index.html
+          test -f dist/releases/release-notes/index.html
+          grep -q "https://docs.database.pizza/raw/releases/index.md" public/llms.txt
+          grep -q "https://docs.database.pizza/raw/releases/release-notes.md" public/llms.txt
+          grep -q "Canonical URL: https://docs.database.pizza/releases/" public/llms-full.txt
+          grep -q "Canonical URL: https://docs.database.pizza/releases/release-notes/" public/llms-full.txt
