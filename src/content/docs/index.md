@@ -31,7 +31,7 @@ Every database gives you a managed access surface plus a dashboard:
 
 All programmatic access is authenticated with **API keys**. Keys carry granular scopes — `read`, `write`, `alter_table`, `drop_table` — so you can issue a read-only key to a reporting job and a write key to an ingestion service. See [API keys & permissions](/clients/api-keys/).
 
-> **Before you connect anything:** the PostgreSQL wire protocol is **partial**, and the managed proxy currently **declines TLS** (`sslmode=disable`). Credentials and query traffic over the wire are therefore **not encrypted** on an untrusted network. Verify that your specific client, driver, or ORM works before committing to it. Read [PostgreSQL protocol](/internals/postgres-protocol/) and [Connect](/getting-started/connect/).
+> **Before you connect anything:** the PostgreSQL wire protocol is **partial**, and TLS availability depends on the deployment: use `sslmode=require` when the managed proxy serves a certificate, and `sslmode=disable` only when SSL negotiation is declined or the hop is trusted. Credentials and query traffic are not encrypted end to end even with TLS, because the proxy-to-engine loopback hop is plaintext. Verify that your specific client, driver, or ORM works before committing to it. Read [PostgreSQL protocol](/internals/postgres-protocol/) and [Connect](/getting-started/connect/).
 
 ## A taste
 

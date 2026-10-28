@@ -8,14 +8,14 @@ PizzaSQL implements a **partial** PostgreSQL wire protocol, which lets *some* Po
 Before you connect anything, two facts matter:
 
 - **The SQL is SQLite-style, not PostgreSQL.** The dialect differences in [Compatibility](/sql-reference/compatibility/) apply to every client.
-- **TLS is not available.** The proxy currently declines SSL, so your API key and query traffic travel in cleartext over the wire. Use `sslmode=disable`, and do not send sensitive data over an untrusted network.
+- **TLS terminates at the managed proxy when the deployment enables it.** With a certificate installed, the proxy offers TLS by default (mode `optional`): `sslmode=prefer`/`require` clients upgrade automatically and existing `sslmode=disable` clients keep working. The operator can set `PGPROXY_TLS_MODE=required` to reject plaintext with `08P01`; clients pinned to `sslmode=disable` (including `ssl: false` in node-postgres) then fail until they enable TLS. If SSL negotiation is declined, the deployment has not installed a certificate yet: use `sslmode=disable` only over a trusted hop. TLS never covers the proxy-to-engine loopback hop.
 
 The connection parameters are described in [Connect](/getting-started/connect/):
 
 - Host `db.database.pizza`, port `5432`.
 - Database name `acme/production` (slash included).
 - Password is your API key; the user field is ignored.
-- `sslmode=disable` — TLS is currently declined by the proxy.
+- `sslmode=require` when the deployment serves TLS; `sslmode=disable` only when SSL negotiation is declined or the hop is trusted.
 
 ## Connection URI
 
@@ -58,7 +58,7 @@ Some GUI tools connect using the connection type **PostgreSQL**, but support var
 - **Database**: `acme/production`
 - **User**: `u` (any value)
 - **Password**: your API key
-- **SSL**: off / disable
+- **SSL**: require (or disable only on a deployment that declines TLS)
 
 Most GUIs use discrete fields, so enter `acme/production` literally — no `%2F` encoding needed. A GUI that runs introspection beyond the [emulated catalog subset](/internals/postgres-protocol/) may fail; test it against your actual schema before relying on it.
 
@@ -107,6 +107,14 @@ conn.close()
 ```
 
 See [Python](/clients/python/) for more.
+
+#### Array parameters are rejected
+
+`WHERE id = ANY($1)` with a text[]/int[] parameter returns SQLSTATE `0A000`. The engine has no array type and does not expand a bound array; rewrite the query with an `IN (?, ?, ...)` list. This is documented in [Data types](/sql-reference/data-types/) and reported by the capability document.
+
+#### Discovery and quota errors
+
+Read the real build from `pizzasql_version()` or the `pizzasql.version` ParameterStatus; `server_version` remains the PostgreSQL compatibility string. `GET /capabilities` (engine HTTP API) serves the machine-readable capability document. When the per-organization connection quota is full, the proxy returns SQLSTATE `53300` with the current/limit numbers and a retry hint; retry after a short backoff or reduce the client pool size. See [Limits & quotas](/guides/limits/#connections-and-idle-disconnects).
 
 ### Go — `pgx` / `lib/pq`
 

@@ -25,6 +25,8 @@ Constraints in PizzaSQL fall into two camps: the ones that are actually implemen
 
 - `DEFAULT expr` is evaluated when the table is created, then stored and applied to inserted rows that omit the column.
 - Because it's evaluated at DDL time, only constant expressions are useful. There is no `DEFAULT (expr)` re-evaluation per row.
+- A non-constant default (`CURRENT_TIMESTAMP`, `datetime('now')`, a scalar function call, a column reference) is **rejected at DDL with SQLSTATE `0A000`**. Accepting it would silently freeze one value for the life of the table. Declare the column without a default and supply a fresh value on each `INSERT`.
+- A constant `DEFAULT` on `ADD COLUMN` applies to later inserts only; existing rows are not backfilled. See [ALTER TABLE](/sql-reference/statements/#alter-table).
 
 ### AUTOINCREMENT
 
@@ -43,6 +45,10 @@ Constraints in PizzaSQL fall into two camps: the ones that are actually implemen
 
 The implementation is scan-based: a table with a unique index serializes its core writes on the table gate so the validating scan cannot race another writer, and multi-row DML against such a table runs in an implicit transaction for statement-level atomicity. This is **not** full SQLite or PostgreSQL concurrency semantics, and DDL remains non-transactional. See [Indexes](/engine/indexes/) and [Compatibility](/sql-reference/compatibility/).
 
+Outside an explicit transaction a duplicate is rejected by the `INSERT`/`UPDATE` itself. Inside an explicit transaction, writes are buffered and the unique indexes are validated at **`COMMIT`**, so the offending statement can succeed and the `COMMIT` then fail. A failed `COMMIT` has already rolled the transaction back and leaves the session usable (the next statement starts a new implicit transaction).
+
+The wire protocol reports a duplicate as SQLSTATE `23505` with the violated index name in the message. The managed HTTP query API reports HTTP `409` with `"code": "23505"` and the index name in `details.constraint`. `INSERT ... ON CONFLICT` and `INSERT OR IGNORE`/`REPLACE` remain the idempotent write shapes; a plain insert is not retry-safe by itself.
+
 ### Fresh schemas vs. existing tables
 
 `UNIQUE` constraints are materialized into indexes **only when the table is created**. The effect applies to newly created tables, not retroactively:
@@ -53,23 +59,21 @@ The implementation is scan-based: a table with a unique index serializes its cor
 
 Do not assume an existing table's uniqueness is enforced just because the engine now supports `UNIQUE`.
 
-## The non-enforced constraints
+## The rejected constraints
 
-These are accepted by the parser and then **silently discarded** — the schema does not store them and no code checks them:
+`CHECK` and `FOREIGN KEY` are **rejected at DDL** with SQLSTATE `0A000` instead of being accepted and discarded:
 
-| Constraint | Parsed? | Stored? | Enforced? |
-| --- | --- | --- | --- |
-| `CHECK (expr)` | yes | no | **no** |
-| `FOREIGN KEY ... REFERENCES ...` | yes | no | **no** |
+| Constraint | Status | What to do instead |
+| --- | --- | --- |
+| `CHECK (expr)` | Rejected at `CREATE TABLE` and `ALTER TABLE ADD COLUMN` | Validate in the application, or enforce through a unique/foreign-key-free design (a partial unique index is not available either). |
+| `FOREIGN KEY ... REFERENCES ...` | Rejected, including inline `REFERENCES`, table-level `FOREIGN KEY`, named constraints, and `ON DELETE`/`ON UPDATE` actions | Enforce referential integrity in the application; cascades are not implemented. |
 
-Consequences to internalize:
+This is deliberate: accepting the clause while never evaluating it made applications believe a constraint existed. A migration that carries `CHECK`/`FOREIGN KEY` from PostgreSQL or SQLite now fails loudly at the DDL statement and must be rewritten. Gogs and Vikunja declare neither clause; GoatCounter's retired schema does, so a fresh GoatCounter bootstrap is not supported on this engine build.
 
-- Duplicate values are allowed in any column except the primary key and non-`NULL` unique-indexed columns.
-- Foreign-key relationships are not validated; deleting a parent row does not cascade, restrict, or set null on children.
-- `CHECK` constraints never run. `CREATE TABLE t (age INTEGER CHECK (age > 0))` happily accepts `-5`.
+Constraints that remain accepted and enforced are `PRIMARY KEY` (single column), `NOT NULL`, `UNIQUE`/unique indexes, and constant `DEFAULT`s. Duplicate values are allowed in any other column.
 
 ## Why this matters for migrations
 
-SQLite-flavoured schemas often lean on `UNIQUE` and `FOREIGN KEY` for integrity. `UNIQUE` constraints now import into enforced unique indexes, but `FOREIGN KEY` is still **dropped silently** rather than erroring. Inspect the imported schema afterwards and add application-level checks for anything that must stay referentially consistent.
+SQLite- and PostgreSQL-flavoured schemas often lean on `UNIQUE`, `CHECK`, and `FOREIGN KEY` for integrity. `UNIQUE` imports into enforced unique indexes, but `CHECK`/`FOREIGN KEY` are rejected. Rewrite those DDL statements and add application-level checks for anything that must stay referentially consistent before pointing a migrator at PizzaSQL.
 
 See [Compatibility](/sql-reference/compatibility/) for the wider gap list, and [Indexes](/engine/indexes/) for how `CREATE INDEX`/`UNIQUE INDEX` actually behave at the storage layer.

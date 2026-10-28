@@ -18,7 +18,7 @@ Connect to `db.database.pizza` on port `5432` the way you would a PostgreSQL ser
 
 1. **The database name is `acme/production`** — organization and database joined by a slash. It's a single name, not two path segments.
 2. **The password is your API key.** The user field is ignored; you can use any value (the examples use `u`).
-3. **TLS is declined.** The proxy currently answers SSL negotiation with `N`, so connect with `sslmode=disable`. Don't require or verify TLS here — it will fail.
+3. **TLS is deployment-dependent.** The managed proxy supports TLS termination; use `sslmode=require` when it is enabled. If SSL negotiation is answered with `N`, the deployment has no certificate installed: use `sslmode=disable` over a trusted hop.
 
 ### Connection string
 
@@ -64,14 +64,14 @@ The HTTP surface also exposes a batch endpoint, schema introspection, and a heal
 | Database | `acme/production` | path segment `/acme/production` |
 | User | ignored (use `u`) | — |
 | Password / token | API key | `Authorization: Bearer <key>` |
-| SSL | `sslmode=disable` (TLS declined) | HTTPS only |
+| SSL | `sslmode=require` when enabled; `disable` only if negotiation is declined | HTTPS only |
 
 ## Which should I use?
 
 - **PostgreSQL wire protocol** is useful when you have a tested Postgres driver or `psql`-style workflow. It is the only surface that supports transactions (optimistic DML transactions — see [Transactions](/engine/transactions/)). It is **not** a full PostgreSQL surface: the SQL dialect is SQLite-style, and compatibility is partial.
 - **HTTP query API** is best for serverless functions, edge workloads, and environments where a long-lived database connection isn't practical. Transactions are **not** supported over HTTP — use the Postgres protocol when you need them. Do not expose a database API key in browser code.
 
-> **TLS warning.** The PostgreSQL proxy currently **declines SSL**. All wire-protocol connections use `sslmode=disable`, so your API key and query traffic are **sent in cleartext**. Avoid using the wire protocol for sensitive data over an untrusted network; prefer the HTTPS-only HTTP API when confidentiality matters. See [API keys & permissions](/clients/api-keys/).
+> **TLS warning.** TLS terminates at the managed proxy when the deployment has a certificate; `sslmode=require` then protects the client-to-proxy hop. The proxy-to-engine loopback hop remains plaintext, and a deployment without a certificate declines SSL entirely. Prefer the HTTPS-only HTTP API when you need end-to-end transport security. See [API keys & permissions](/clients/api-keys/).
 
 Both surfaces enforce the same API key scopes. See [API keys & permissions](/clients/api-keys/) and [PostgreSQL clients](/clients/postgresql/) for idiomatic client examples.
 
@@ -79,7 +79,7 @@ Both surfaces enforce the same API key scopes. See [API keys & permissions](/cli
 
 - **`invalid_password` / "authentication failed"** — the key is wrong, revoked, or lacks `DB_ACCESS` permission. Check the key and its scopes.
 - **`invalid_catalog_name` / "database must be org/db"** — the database name doesn't contain the `/`. Use `acme/production`.
-- **SSL negotiation fails** — you forced TLS. Use `sslmode=disable`.
+- **SSL negotiation fails** — this deployment declined SSL negotiation, so it has no proxy certificate configured. Use `sslmode=disable` over a trusted hop, or ask the operator to enable TLS.
 - **`invalid api key`** — the key isn't a valid live key, or you pasted it with whitespace.
 
 More error cases are covered in [Errors & troubleshooting](/guides/errors/).

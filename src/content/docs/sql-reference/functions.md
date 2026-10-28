@@ -97,8 +97,26 @@ Date/time functions accept SQLite-style time values and modifiers:
 
 | Function | Description |
 | --- | --- |
-| `pizzasql_version()` | engine build version |
-| `sqlite_version()` | same value, for SQLite compatibility |
+| `pizzasql_version()` | PizzaSQL engine build identity (for example `v0.1.0-3-gabc1234`) |
+| `sqlite_version()` | the documented SQLite compatibility floor, `3.35.0` |
+
+`pizzasql_version()` is deliberately independent of the `server_version`/`version()` PostgreSQL compatibility string and of `sqlite_version()`. See [Engine build and capabilities](/sql-reference/compatibility/#engine-build-and-capability-discovery) for the wire-protocol and HTTP discovery endpoints.
+
+### JSON
+
+JSON lives in ordinary text. These SQLite JSON1 functions are implemented:
+
+| Function | Behavior |
+| --- | --- |
+| `json(text)` | validates and returns the canonical JSON text |
+| `json_valid(text)` | `1` for valid JSON, `0` otherwise (never throws) |
+| `json_type(text)` | `null`, `true`, `false`, `integer`, `real`, `text`, `array`, or `object` |
+| `json_extract(text, path, ...)` | path lookup; returns SQL `NULL` for a missing path |
+| `json_set`, `json_insert`, `json_replace`, `json_remove` | partial document updates |
+| `json_array`, `json_object`, `json_quote` | constructors |
+| `json_group_array` | aggregate that builds a JSON array |
+
+Malformed input to `json`, `json_extract`, or the mutators fails the statement with `malformed JSON`; `json_valid` is the non-throwing probe. There is no binary `JSONB` representation and no `->`/`->>` operator surface; use `json_extract`. Store documents in a `TEXT` column (or a `JSON`-named column, which stores text with NUMERIC affinity and reports `TEXT` on the wire).
 
 ### Session state
 

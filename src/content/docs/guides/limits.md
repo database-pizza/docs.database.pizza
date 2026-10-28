@@ -16,9 +16,15 @@ Quotas apply per organization and cover four dimensions:
 | Databases | 3 | Active databases in the organization |
 | Storage | 100 MB | Allocated on-disk space for the organization |
 | Queries | 500,000 / week | Queries across all surfaces |
-| Connections | 100 concurrent | Open PostgreSQL connections |
+| Connections | 8 concurrent (compiled fallback) | Open PostgreSQL connections |
 
-Queries and bytes-read are counted per organization per week; concurrent connections are measured at any instant. Usage is visible in the dashboard's **Quota** view.
+Queries and bytes-read are counted per organization per week; concurrent connections are measured at any instant. Usage is visible in the dashboard's **Quota** view and through `GET /api/v1/orgs/{id}/quota`, which returns `usage.active_connections` alongside `quota.max_concurrent_connections`. The dashboard value is authoritative: organizations normally have an explicit quota row, so the compiled fallback of 8 only applies when no override exists.
+
+### Connections and idle disconnects
+
+When the connection quota is exhausted, the proxy returns SQLSTATE `53300` with the current and limit numbers (for example `8/8 connections active`) and a retry hint in the message, plus a `connection_quota` detail. It briefly waits for a slot to free before failing. Treat `53300` as retryable with backoff and check for leaked client-side pool connections.
+
+Neither the proxy nor the engine sets an idle timeout. A connection that goes away after sitting idle is closed by the network path (NAT/firewall state expiry) or by the client pool, not by database.pizza. The proxy enables TCP keepalive on both hops (30s idle, 10s interval) so state stays warm and a dead peer is detected, but clients should still enable keepalive, bound pool `max_lifetime`/`idle_timeout`, and retry a connection that fails its first statement.
 
 When you hit a quota:
 
@@ -53,7 +59,13 @@ Imports of existing SQLite databases skip several constructs: views, triggers, p
 
 ## TLS and connectivity
 
-The PostgreSQL proxy currently declines SSL, so all wire-protocol connections use `sslmode=disable`. The HTTP surface is HTTPS-only. Plan around this for sensitive data — see the security notes in [API keys & permissions](/clients/api-keys/).
+The managed PostgreSQL proxy supports TLS termination with a deployment setting (`PGPROXY_TLS_MODE`):
+
+- `optional` (default when a certificate is installed) offers TLS; `sslmode=prefer`/`require` clients upgrade, while `sslmode=disable` clients keep working.
+- `required` rejects plaintext startup with `08P01`. Clients pinned to `sslmode=disable` or `ssl: false` must be updated first.
+- `off` disables TLS even if certificate paths are configured.
+
+If SSL negotiation is declined, that deployment has no certificate installed and only `sslmode=disable` works; use it only over a trusted hop. The HTTP surface is HTTPS-only. TLS ends at the proxy: the loopback hop to PizzaSQL is plaintext. See the security notes in [API keys & permissions](/clients/api-keys/) and the client impact matrix in [PostgreSQL clients](/clients/postgresql/#discovery-and-quota-errors).
 
 ## Related
 
