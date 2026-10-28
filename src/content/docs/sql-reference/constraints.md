@@ -59,23 +59,21 @@ The wire protocol reports a duplicate as SQLSTATE `23505` with the violated inde
 
 Do not assume an existing table's uniqueness is enforced just because the engine now supports `UNIQUE`.
 
-## The non-enforced constraints
+## The rejected constraints
 
-These are accepted by the parser and then **silently discarded** — the schema does not store them and no code checks them:
+`CHECK` and `FOREIGN KEY` are **rejected at DDL** with SQLSTATE `0A000` instead of being accepted and discarded:
 
-| Constraint | Parsed? | Stored? | Enforced? |
-| --- | --- | --- | --- |
-| `CHECK (expr)` | yes | no | **no** |
-| `FOREIGN KEY ... REFERENCES ...` | yes | no | **no** |
+| Constraint | Status | What to do instead |
+| --- | --- | --- |
+| `CHECK (expr)` | Rejected at `CREATE TABLE` and `ALTER TABLE ADD COLUMN` | Validate in the application, or enforce through a unique/foreign-key-free design (a partial unique index is not available either). |
+| `FOREIGN KEY ... REFERENCES ...` | Rejected, including inline `REFERENCES`, table-level `FOREIGN KEY`, named constraints, and `ON DELETE`/`ON UPDATE` actions | Enforce referential integrity in the application; cascades are not implemented. |
 
-Consequences to internalize:
+This is deliberate: accepting the clause while never evaluating it made applications believe a constraint existed. A migration that carries `CHECK`/`FOREIGN KEY` from PostgreSQL or SQLite now fails loudly at the DDL statement and must be rewritten. Gogs and Vikunja declare neither clause; GoatCounter's retired schema does, so a fresh GoatCounter bootstrap is not supported on this engine build.
 
-- Duplicate values are allowed in any column except the primary key and non-`NULL` unique-indexed columns.
-- Foreign-key relationships are not validated; deleting a parent row does not cascade, restrict, or set null on children.
-- `CHECK` constraints never run. `CREATE TABLE t (age INTEGER CHECK (age > 0))` happily accepts `-5`.
+Constraints that remain accepted and enforced are `PRIMARY KEY` (single column), `NOT NULL`, `UNIQUE`/unique indexes, and constant `DEFAULT`s. Duplicate values are allowed in any other column.
 
 ## Why this matters for migrations
 
-SQLite-flavoured schemas often lean on `UNIQUE` and `FOREIGN KEY` for integrity. `UNIQUE` constraints now import into enforced unique indexes, but `FOREIGN KEY` is still **dropped silently** rather than erroring. Inspect the imported schema afterwards and add application-level checks for anything that must stay referentially consistent.
+SQLite- and PostgreSQL-flavoured schemas often lean on `UNIQUE`, `CHECK`, and `FOREIGN KEY` for integrity. `UNIQUE` imports into enforced unique indexes, but `CHECK`/`FOREIGN KEY` are rejected. Rewrite those DDL statements and add application-level checks for anything that must stay referentially consistent before pointing a migrator at PizzaSQL.
 
 See [Compatibility](/sql-reference/compatibility/) for the wider gap list, and [Indexes](/engine/indexes/) for how `CREATE INDEX`/`UNIQUE INDEX` actually behave at the storage layer.

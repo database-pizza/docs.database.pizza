@@ -50,7 +50,7 @@ The engine repository also runs a pChat-style compatibility suite (`make compat`
 
 Do not rely on the following behavior yet:
 
-- `CHECK` and foreign-key declarations are accepted but not enforced. `UNIQUE` constraints and unique indexes are enforced on the core write paths, but only through validating scans — this is not a durable uniqueness claim and does not imply full SQLite or PostgreSQL concurrency semantics. `UNIQUE` is materialized only when a table is created; tables created before this support are not retroactively enforced after an upgrade.
+- `CHECK` and foreign-key declarations are rejected at DDL with SQLSTATE `0A000`; they are never accepted and discarded. `UNIQUE` constraints and unique indexes are enforced on the core write paths, but only through validating scans — this is not a durable uniqueness claim and does not imply full SQLite or PostgreSQL concurrency semantics. `UNIQUE` is materialized only when a table is created; tables created before this support are not retroactively enforced after an upgrade.
 - Composite primary keys are rejected at DDL with SQLSTATE `0A000`; they are never silently reduced to the first column.
 - Non-constant column defaults (`DEFAULT CURRENT_TIMESTAMP`, function calls) are rejected at DDL with `0A000`; there is no per-INSERT default evaluation.
 - Array parameters and `ANY`/`ALL` predicates are rejected with `0A000`; rewrite them as `IN (...)` with individual parameters.
@@ -109,7 +109,7 @@ Unsupported syntax normally returns an error. The items above are called out sep
 | --- | --- | --- | --- |
 | `CREATE TABLE` and `DROP TABLE` | Supported | Supported | Supported |
 | `CREATE TABLE IF NOT EXISTS` | Supported | Supported | Supported |
-| `ALTER TABLE ADD/DROP/RENAME` | Partial | Partial | Supported |
+| `ALTER TABLE ADD/DROP/RENAME` | Partial; no backfill on ADD, DROP rewrites rows, RENAME leaves index metadata stale | Partial | Supported |
 | Altering column type, default, or nullability | Unsupported | Limited | Supported |
 | `CREATE INDEX` and `DROP INDEX` | Partial; indexes are rebuilt from stored rows | Supported | Supported |
 | `CREATE INDEX IF NOT EXISTS` | Supported in current source; deployed versions may differ | Supported | Supported |
@@ -120,8 +120,8 @@ Unsupported syntax normally returns an error. The items above are called out sep
 | `NOT NULL` | Supported | Supported | Supported |
 | `UNIQUE` constraints | Partial; enforced on core write paths via validating scans | Supported | Supported |
 | Unique indexes | Partial; enforced on core write paths via validating scans | Supported | Supported |
-| `CHECK` constraints | Unsafe; parsed but not enforced | Supported | Supported |
-| Foreign keys | Unsafe; parsed but not enforced | Supported when enabled | Supported |
+| `CHECK` constraints | Rejected with `0A000` | Supported | Supported |
+| Foreign keys | Rejected with `0A000`; cascades are not implemented | Supported when enabled | Supported |
 | Literal defaults | Supported (constant values) | Supported | Supported |
 | Expression defaults | Rejected with `0A000` | Supported | Supported |
 | `DEFAULT CURRENT_TIMESTAMP` | Rejected with `0A000`; no per-row evaluation | Supported | Supported |

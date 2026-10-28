@@ -89,7 +89,8 @@ CREATE TABLE [IF NOT EXISTS] table (
 ```
 
 - `IF NOT EXISTS` silently succeeds if the table already exists.
-- `PRIMARY KEY`, `NOT NULL`, and `DEFAULT` have an effect; `AUTOINCREMENT` is accepted but adds no behavior. Inline and table-level `UNIQUE` constraints are materialized into unique indexes and enforced on the core write paths — see [Constraints](/sql-reference/constraints/). `CHECK` and `FOREIGN KEY` are still parsed and discarded.
+- `PRIMARY KEY`, `NOT NULL`, and constant `DEFAULT`s have an effect; `AUTOINCREMENT` is accepted but adds no behavior. Inline and table-level `UNIQUE` constraints are materialized into unique indexes and enforced on the core write paths — see [Constraints](/sql-reference/constraints/).
+- `CHECK` and `FOREIGN KEY` are rejected at DDL with SQLSTATE `0A000` (inline and table-level, including named constraints and referential actions). They are not silently discarded; enforce those rules in the application.
 - A table-level `PRIMARY KEY (a, b)` uses the first named column as the primary key; composite keys are not truly supported.
 - `DEFAULT expr` is evaluated when the table is created, so it must be a constant expression and is stored as the evaluated value. Signed numeric literals (`DEFAULT -1`, `DEFAULT +5`, `DEFAULT (-7)`), strings, blobs, `NULL`, and boolean literals are accepted. A non-constant default such as `DEFAULT CURRENT_TIMESTAMP`, `DEFAULT datetime('now')`, or `DEFAULT lower('X')` is rejected at DDL with SQLSTATE `0A000` rather than being frozen at table-creation time. There is no per-row default evaluation; supply the value on `INSERT` instead.
 - A bare `NULL` column specifier is accepted as a no-op (columns are nullable by default); `NOT NULL` still applies whenever it appears.
