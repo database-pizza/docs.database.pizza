@@ -16,9 +16,11 @@ Quotas apply per organization and cover four dimensions:
 | Databases | 3 | Active databases in the organization |
 | Storage | 100 MB | Allocated on-disk space for the organization |
 | Queries | 500,000 / week | Queries across all surfaces |
-| Connections | 8 concurrent (compiled fallback) | Open PostgreSQL connections |
+| Connections | 64 concurrent | Open PostgreSQL connections |
 
-Queries and bytes-read are counted per organization per week; concurrent connections are measured at any instant. Usage is visible in the dashboard's **Quota** view and through `GET /api/v1/orgs/{id}/quota`, which returns `usage.active_connections` alongside `quota.max_concurrent_connections`. The dashboard value is authoritative: organizations normally have an explicit quota row, so the compiled fallback of 8 only applies when no override exists.
+Queries and bytes-read are counted per organization per week; concurrent connections are measured at any instant. Usage is visible in the dashboard's **Quota** view and through `GET /api/v1/orgs/{id}/quota`, which returns `usage.active_connections` alongside `quota.max_concurrent_connections`.
+
+The default is 64 concurrent connections for new organizations. Migration `020` raises every existing organization from the earlier temporary cap of 8 to 64; organizations with a larger pooled workload can have an explicit override. The value shown in the dashboard is authoritative.
 
 ### Connections and idle disconnects
 

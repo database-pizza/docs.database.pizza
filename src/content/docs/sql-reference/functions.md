@@ -21,11 +21,13 @@ Used in `SELECT` with or without `GROUP BY`, and in `HAVING`.
 | `AVG(expr)` | average (real); `NULL` when no values |
 | `MIN(expr)` | minimum, ignoring `NULL`s |
 | `MAX(expr)` | maximum, ignoring `NULL`s |
+| `GROUP_CONCAT(expr [, separator])` | concatenates non-`NULL` values with `,` by default; `DISTINCT` de-duplicates; returns `NULL` when there are no values |
+| `TOTAL(expr)` | sum as a real; returns `0` (not `NULL`) when there are no values |
 
 - Aggregates may be nested inside expressions: `SELECT sum(x) / count(x) FROM t`.
-- On an empty input set, `COUNT` returns `0`; `SUM`, `AVG`, `MIN`, `MAX` return `NULL`.
+- On an empty input set, `COUNT` and `TOTAL` return `0`; `SUM`, `AVG`, `MIN`, `MAX`, and `GROUP_CONCAT` return `NULL`.
 - `MIN`/`MAX` also work as *scalar* functions over multiple arguments: `MIN(a, b, c)`.
-- `TOTAL` and `GROUP_CONCAT` are declared in the catalog but **not implemented** — do not rely on them.
+- `GROUP_CONCAT(DISTINCT expr)` de-duplicates after `NULL` values are skipped. The optional separator is evaluated per row (use a literal).
 
 ## Scalar functions
 
