@@ -114,7 +114,7 @@ JSON lives in ordinary text. These SQLite JSON1 functions are implemented:
 | `json_extract(text, path, ...)` | path lookup; returns SQL `NULL` for a missing path |
 | `json_set`, `json_insert`, `json_replace`, `json_remove` | partial document updates |
 | `json_array`, `json_object`, `json_quote` | constructors |
-| `json_group_array`, `json_group_object` | aggregates |
+| `json_group_array` | aggregate that builds a JSON array |
 
 Malformed input to `json`, `json_extract`, or the mutators fails the statement with `malformed JSON`; `json_valid` is the non-throwing probe. There is no binary `JSONB` representation and no `->`/`->>` operator surface; use `json_extract`. Store documents in a `TEXT` column (or a `JSON`-named column, which stores text with NUMERIC affinity and reports `TEXT` on the wire).
 
