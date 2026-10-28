@@ -13,16 +13,16 @@ When the release control plane offers a newer compatible pair, the organization 
 - the release changelog and severity,
 - compatibility notes, including whether a storage migration is required and whether rollback is supported.
 
-Open **Review changelog & update** to read the full notes before doing anything.
+Open **Review changelog & update** to expand the notes and controls inline; there is no modal. Choosing an action closes the form, and the banner area becomes the live cutover status.
 
 ## Choosing when to restart
 
-Only an organization owner can apply the update. The dialog offers:
+Only an organization owner can apply the update. The inline panel offers:
 
 - **Restart now** — confirm that the tenant databases will restart briefly. The control plane snapshots, stops, starts the new pair, and health-gates it before reporting success. In-flight transactions may be interrupted.
 - **Schedule** — pick a one-off local date and time at least a minute ahead. The operation stays queued and the release scheduler performs the same snapshot/cutover/health sequence when the time arrives.
 
-The operation is durable and auditable. If a start or health check fails, the previous pair is restored where rollback is supported; storage-migration updates may be one-way, which the dialog warns about.
+The operation is durable and auditable. While it runs, the banner area shows the current step (stopping, snapshotting, starting, health check) and its progress; the page polls automatically. If a start or health check fails, the previous pair is restored where rollback is supported, and the failure stays inline with retry/dismiss actions. Storage-migration updates may be one-way, which the panel warns about.
 
 ## API
 
