@@ -94,6 +94,7 @@ export default defineConfig({
             { label: 'Expressions & operators', link: '/sql-reference/expressions/' },
             { label: 'Functions', link: '/sql-reference/functions/' },
             { label: 'Constraints', link: '/sql-reference/constraints/' },
+            { label: 'Notifications', link: '/sql-reference/notifications/' },
             { label: 'Compatibility', link: '/sql-reference/compatibility/' },
           ],
         },

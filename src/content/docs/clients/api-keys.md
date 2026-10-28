@@ -44,8 +44,12 @@ Scopes constrain what a key can do. A key with no granted scope is denied everyt
 | `write` | `INSERT`, `UPDATE`, `DELETE` |
 | `alter_table` | `CREATE TABLE`, `ALTER TABLE` |
 | `drop_table` | `DROP TABLE` |
+| `listen:<pattern>` | `LISTEN`, `UNLISTEN`, and SSE channel subscriptions |
+| `notify:<pattern>` | `NOTIFY` |
 
 Statements are validated against these scopes on every request, over both HTTP and the Postgres protocol. A `DROP TABLE` requires the explicit `drop_table` scope; schema changes require `alter_table`.
+
+Channel scopes are separate from the data scopes: `read` does not grant `LISTEN`, and a `listen:orders.*` scope does not grant `SELECT`. Patterns are an exact channel name or a prefix ending in `*`. See [Notifications](/sql-reference/notifications/).
 
 ### `REST_API` scopes
 
