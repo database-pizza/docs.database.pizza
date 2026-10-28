@@ -51,29 +51,31 @@ INSERT OR REPLACE INTO table ...;
 INSERT OR IGNORE INTO table ...;
 INSERT OR FAIL INTO table ...;
 INSERT OR ABORT INTO table ...;
-INSERT INTO table ... ON CONFLICT [(pk)] DO NOTHING;
-INSERT INTO table ... ON CONFLICT [(pk)] DO UPDATE SET col = expr, ...;
+INSERT INTO table ... ON CONFLICT [(col, ...)] DO NOTHING;
+INSERT INTO table ... ON CONFLICT [(col, ...)] DO UPDATE SET col = expr, ...;
+INSERT INTO table ... RETURNING expr, ...;
 ```
 
 - Omitting the column list targets all columns in declaration order.
 - `INSERT ... SELECT` bulk-inserts the materialized result.
-- **Conflict handling** is driven by the primary key only:
-  - `INSERT OR IGNORE` silently skips duplicate-PK rows.
+- **Conflict handling** applies to the primary key and to unique indexes:
+  - `INSERT OR IGNORE` silently skips rows that would violate a primary key or unique index.
   - `INSERT OR REPLACE` deletes the conflicting row and inserts the new one.
-  - `INSERT OR FAIL`/`OR ABORT` abort on the first duplicate.
-  - `ON CONFLICT (target) DO NOTHING` / `DO UPDATE SET ...` work only when the conflict is on the primary key; the `(target)` list must name the PK column (or be omitted).
-- Auto-generated integer primary keys (and the implicit rowid) are assigned when no PK value is supplied. There is **no `RETURNING`**, but `SELECT last_insert_rowid()` returns the rowid of the most recent successful `INSERT` on this connection (see [Functions](/sql-reference/functions/)).
+  - `INSERT OR FAIL`/`OR ABORT` abort on the first conflict.
+  - `ON CONFLICT (target) DO NOTHING` / `DO UPDATE SET ...` accept a primary-key or unique-index column list; omit the list for any conflict. `excluded.column` refers to the value proposed by the INSERT.
+- Auto-generated integer primary keys (and the implicit rowid) are assigned when no PK value is supplied. `SELECT last_insert_rowid()` returns the rowid of the most recent successful `INSERT` on this connection (see [Functions](/sql-reference/functions/)).
+- `RETURNING expr, ...` returns the inserted rows (including generated keys and defaults) instead of a bare command tag.
 
 ## UPDATE and DELETE
 
 ```sql
-UPDATE table SET col = expr, ... WHERE condition;
-DELETE FROM table WHERE condition;
+UPDATE table SET col = expr, ... [WHERE condition] [RETURNING expr, ...];
+DELETE FROM table [WHERE condition] [RETURNING expr, ...];
 ```
 
 - Both evaluate the `WHERE` condition per row. `UPDATE` evaluates `SET` expressions against the row's current values, so `SET balance = balance + 100` works.
 - Omitting `WHERE` affects every row.
-- No `RETURNING`, no `ORDER BY`/`LIMIT` on `UPDATE`/`DELETE`.
+- `RETURNING` returns the affected rows. `ORDER BY`/`LIMIT` on `UPDATE`/`DELETE` are not supported.
 
 ## CREATE TABLE
 
@@ -176,4 +178,4 @@ DETACH DATABASE alias;
 
 ## Not supported
 
-These are rejected at parse time: `RETURNING`, `WITHOUT ROWID`, `TRUNCATE`, `UPSERT` (beyond the `OR`/`ON CONFLICT` forms), triggers, and `CREATE SCHEMA`/roles. Window functions other than `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)` are also rejected.
+These are rejected at parse time: `WITHOUT ROWID`, `TRUNCATE`, `UPSERT` (beyond the `OR`/`ON CONFLICT` forms), triggers, and `CREATE SCHEMA`/roles. Window functions other than `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)` are also rejected.

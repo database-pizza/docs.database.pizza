@@ -99,7 +99,7 @@ Unsupported syntax normally returns an error. The items above are called out sep
 | `INSERT OR IGNORE`, `REPLACE`, and related SQLite conflict modes | Supported | Supported | Different syntax |
 | `ON CONFLICT DO NOTHING` | Supported for primary-key and unique-index targets | Supported for unique constraints | Supported for unique constraints |
 | `ON CONFLICT DO UPDATE` | Supported for primary-key and unique-index targets, including `excluded` | Supported for unique constraints | Supported for unique constraints |
-| `RETURNING` | Unsupported | Supported since 3.35 | Supported |
+| `RETURNING` | Supported for `INSERT`, `UPDATE`, and `DELETE` | Supported since 3.35 | Supported |
 | `TRUNCATE` | Unsupported | Unsupported | Supported |
 
 ## Schema and constraints
@@ -168,7 +168,7 @@ PizzaSQL accepts many familiar type names but does not implement PostgreSQL's st
 | SQLite date and time functions | Supported | Supported | Different function set |
 | `last_insert_rowid()`, `changes()`, `total_changes()` | Supported; session-local | Supported | Unsupported |
 | PostgreSQL date and time functions | Unsupported | Unsupported | Supported |
-| JSON functions | Unsupported | Available with SQLite JSON support | Supported |
+| JSON functions | Supported: TEXT storage plus JSON1 scalar functions and `json_group_array`; no `JSONB` or `->`/`->>` | Available with SQLite JSON support | Supported |
 | Window functions | Partial; `ROW_NUMBER()` only | Supported | Supported |
 
 ## Transactions

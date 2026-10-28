@@ -29,7 +29,7 @@ SELECT [DISTINCT] cols FROM table [WHERE ...] [GROUP BY ...] [HAVING ...]
 INSERT INTO t (cols) VALUES (...), (...);
 INSERT INTO t SELECT ...;
 INSERT OR REPLACE/IGNORE/FAIL/ABORT INTO t ...;
-INSERT INTO t ... ON CONFLICT (pk) DO NOTHING | DO UPDATE SET c = v, ...;
+INSERT INTO t ... ON CONFLICT (col, ...) DO NOTHING | DO UPDATE SET c = v, ...;
 UPDATE t SET c = v, ... WHERE ...;
 DELETE FROM t WHERE ...;
 
@@ -57,7 +57,6 @@ EXPLAIN ...; EXPLAIN QUERY PLAN ...;
 PizzaSQL is intentionally small. These features are not implemented at all — they will be rejected by the parser, not silently mishandled:
 
 - **Window functions** — only `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)`; other window functions and frame clauses are not implemented.
-- **`RETURNING`** — `INSERT`/`UPDATE`/`DELETE` do not return rows.
 - **`WITHOUT ROWID`** tables.
 - **Triggers**, **stored procedures**, **prepared SQL in the engine** (the PG driver handles parameters client-side).
 - **`GLOB`** — the keyword exists but is not wired up as an operator; `x GLOB 'a*'` is a parse error.
@@ -66,7 +65,7 @@ A second group of features *parses* but has no effect or is only partially imple
 
 - `RIGHT JOIN` and `FULL [OUTER] JOIN` parse but return an empty result — they are not executed. Use `LEFT JOIN` and reorder.
 - `NATURAL JOIN` and `USING (cols)` parse but the condition is ignored.
-- `UNIQUE`, `CHECK`, and `FOREIGN KEY` constraints parse but are **not enforced** (see [Constraints](/sql-reference/constraints/)).
+- `CHECK` and `FOREIGN KEY` constraints are **rejected at DDL** with SQLSTATE `0A000`; `UNIQUE` constraints and unique indexes are enforced (see [Constraints](/sql-reference/constraints/)).
 - `AUTOINCREMENT` parses but has **no behaviour** beyond ordinary `INTEGER PRIMARY KEY` rowid generation.
 - `LIKE ... ESCAPE 'x'` — the `ESCAPE` clause is parsed and ignored.
 
