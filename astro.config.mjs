@@ -121,6 +121,7 @@ export default defineConfig({
             { label: 'Import & export', link: '/guides/import-export/' },
             { label: 'Errors & troubleshooting', link: '/guides/errors/' },
             { label: 'Limits & quotas', link: '/guides/limits/' },
+            { label: 'Engine updates', link: '/guides/engine-updates/' },
           ],
         },
         {
