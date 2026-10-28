@@ -79,7 +79,7 @@ DELETE FROM table WHERE condition;
 CREATE TABLE [IF NOT EXISTS] table (
   column TYPE [PRIMARY KEY] [NOT NULL] [DEFAULT expr] [AUTOINCREMENT],
   ...,
-  [PRIMARY KEY (col, ...)],
+  [PRIMARY KEY (col)],
   [UNIQUE (col, ...)],
   [CHECK (expr)],
   [FOREIGN KEY (col) REFERENCES other (col)]
@@ -88,7 +88,7 @@ CREATE TABLE [IF NOT EXISTS] table (
 
 - `IF NOT EXISTS` silently succeeds if the table already exists.
 - `PRIMARY KEY`, `NOT NULL`, and `DEFAULT` have an effect; `AUTOINCREMENT` is accepted but adds no behavior. Inline and table-level `UNIQUE` constraints are materialized into unique indexes and enforced on the core write paths — see [Constraints](/sql-reference/constraints/). `CHECK` and `FOREIGN KEY` are still parsed and discarded.
-- A table-level `PRIMARY KEY (a, b)` uses the first named column as the primary key; composite keys are not truly supported.
+- A table-level composite `PRIMARY KEY (a, b)` is rejected at `CREATE TABLE` (SQLSTATE `0A000`) instead of being reduced to the first column.
 - `DEFAULT expr` is evaluated when the table is created, so it must be a constant expression. Signed numeric literals (`DEFAULT -1`, `DEFAULT +5`, `DEFAULT (-7)`) are accepted.
 - A bare `NULL` column specifier is accepted as a no-op (columns are nullable by default); `NOT NULL` still applies whenever it appears.
 - `AUTOINCREMENT` is accepted but has no extra behaviour over a plain `INTEGER PRIMARY KEY`.

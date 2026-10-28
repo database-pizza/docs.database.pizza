@@ -9,8 +9,8 @@ Constraints in PizzaSQL fall into two camps: the ones that are actually implemen
 
 ### PRIMARY KEY
 
-- A single column can be `PRIMARY KEY`, or a table-level `PRIMARY KEY (col, ...)`.
-- A table-level composite key uses **only the first named column** as the effective primary key; true composite keys are not supported.
+- A single column can be `PRIMARY KEY`. A table-level `PRIMARY KEY (col)` is also accepted.
+- A composite primary key (`PRIMARY KEY (a, b)`) is rejected at `CREATE TABLE` with SQLSTATE `0A000`; it is never silently reduced to the first column.
 - An **`INTEGER PRIMARY KEY`** column becomes an alias for the implicit rowid. Inserting without a value auto-assigns the next rowid; inserting with a value sets the rowid and advances the counter past it.
 - A **non-integer primary key** (e.g. `TEXT PRIMARY KEY`) is a normal column with a separate hidden rowid counter.
 - The primary key drives **duplicate detection** on `INSERT`, and therefore `INSERT OR REPLACE`/`OR IGNORE` and `ON CONFLICT DO NOTHING`/`DO UPDATE` — all of which are keyed on the primary key only.
@@ -36,7 +36,7 @@ Constraints in PizzaSQL fall into two camps: the ones that are actually implemen
 `UNIQUE` is enforced, but through validating scans rather than a durable uniqueness claim:
 
 - `CREATE UNIQUE INDEX` and inline/table-level `UNIQUE` constraints both materialize into a unique index definition.
-- The core write paths (`INSERT`, `UPDATE`, `DELETE`, and their `ON CONFLICT`/`OR` variants) validate non-`NULL` values against the table's unique indexes before persisting, rejecting duplicates with `UNIQUE constraint failed`.
+- The core write paths (`INSERT`, `UPDATE`, `DELETE`, and their `ON CONFLICT`/`OR` variants) validate non-`NULL` values against the table's unique indexes before persisting, rejecting duplicates with `UNIQUE constraint failed`. Over the PostgreSQL wire protocol the rejection is SQLSTATE `23505`, and the message names the violated index.
 - `CREATE UNIQUE INDEX` on a table that already contains duplicate non-`NULL` values is rejected and the index is not registered.
 - `NULL` values are exempt — multiple `NULL`s are allowed, matching SQLite.
 - Composite unique indexes are enforced, and integral numerics are canonicalized so `1` (integer) and `1.0` (real) collide the way SQLite's affinity does.
