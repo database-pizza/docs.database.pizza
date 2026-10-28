@@ -13,7 +13,7 @@ export PZ_API_KEY='pz_live_REPLACE_ME'
 
 ## With `pg` (Node.js)
 
-The `pg` driver (node-postgres) gives you a real connection pool and transaction support. The database name includes the `/`, and TLS is disabled.
+The `pg` driver (node-postgres) gives you a real connection pool and transaction support. The database name includes the `/`. node-postgres has `ssl: false` by default, which works in `optional` TLS mode; when the proxy requires TLS, set `ssl: true` (or provide a CA) and expect `08P01` until you do.
 
 ```bash
 npm install pg
@@ -28,7 +28,7 @@ const client = new Client({
   user: 'u',                       // ignored; any value
   password: process.env.PZ_API_KEY,
   database: 'acme/production',     // discrete field — no %2F encoding
-  ssl: false,                      // TLS is declined by the proxy
+  ssl: false,                      // set true when the proxy requires TLS
 });
 
 await client.connect();

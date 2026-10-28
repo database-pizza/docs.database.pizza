@@ -1,6 +1,6 @@
 ---
 title: Constraints
-description: What PRIMARY KEY, NOT NULL, DEFAULT, UNIQUE, CHECK, and FOREIGN KEY actually do in PizzaSQL — and which ones are not enforced.
+description: What PRIMARY KEY, NOT NULL, DEFAULT, UNIQUE, CHECK, and FOREIGN KEY actually do in PizzaSQL — and which ones are rejected.
 ---
 
 Constraints in PizzaSQL fall into two camps: the ones that are actually implemented, and the ones that merely parse. This page is deliberately blunt about the difference, because silently assuming a `CHECK` or `FOREIGN KEY` constraint is enforced will corrupt data. `UNIQUE` is now enforced on the core write paths, with caveats described below.
@@ -13,7 +13,7 @@ Constraints in PizzaSQL fall into two camps: the ones that are actually implemen
 - A composite primary key (`PRIMARY KEY (a, b)`) is rejected at `CREATE TABLE` with SQLSTATE `0A000`; it is never silently reduced to the first column.
 - An **`INTEGER PRIMARY KEY`** column becomes an alias for the implicit rowid. Inserting without a value auto-assigns the next rowid; inserting with a value sets the rowid and advances the counter past it.
 - A **non-integer primary key** (e.g. `TEXT PRIMARY KEY`) is a normal column with a separate hidden rowid counter.
-- The primary key drives **duplicate detection** on `INSERT`, and therefore `INSERT OR REPLACE`/`OR IGNORE` and `ON CONFLICT DO NOTHING`/`DO UPDATE` — all of which are keyed on the primary key only.
+- The primary key and unique indexes drive **duplicate detection** on `INSERT`, and therefore `INSERT OR REPLACE`/`OR IGNORE` and `ON CONFLICT DO NOTHING`/`DO UPDATE`. `ON CONFLICT` targets a primary key or unique-index column list.
 - Without any declared primary key, the engine assigns a synthetic `_rowid_` primary key, so duplicate and NULL values are allowed in user columns.
 
 ### NOT NULL

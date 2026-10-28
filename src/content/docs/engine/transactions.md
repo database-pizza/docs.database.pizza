@@ -53,7 +53,8 @@ COMMIT;                -- keeps the first insert
 On the PostgreSQL protocol, the connection tracks transaction state. If a statement inside a transaction block errors:
 
 - The connection enters a "failed transaction" state and rejects further commands with SQLSTATE `25P02` until the client sends `ROLLBACK` (or `ROLLBACK TO SAVEPOINT`).
-- This mirrors PostgreSQL's aborted-transaction behaviour.
+- A failed **`COMMIT`** is different: storage has already rolled the transaction back, so the session returns to idle and the next statement starts a new implicit transaction. Do not keep issuing `ROLLBACK` after a failed commit.
+- This mirrors PostgreSQL's aborted-statement behaviour.
 
 ## Managed service restrictions
 

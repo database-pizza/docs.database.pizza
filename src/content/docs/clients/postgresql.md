@@ -148,7 +148,7 @@ The SQL you send is **SQLite-compatible**, not PostgreSQL. That means:
 - `INTEGER PRIMARY KEY`, not `SERIAL`; values are assigned when omitted.
 - `TEXT`, not `VARCHAR(n)` with enforced length.
 - No schemas, roles, `ARRAY`, `JSONB`, or `ENUM` types.
-- No `RETURNING`-heavy Postgres-specific features; check [Compatibility](/sql-reference/compatibility/) first.
+- `RETURNING` works for `INSERT`, `UPDATE`, and `DELETE`; PostgreSQL-specific features such as `JSONB` and arrays do not — check [Compatibility](/sql-reference/compatibility/) first.
 
 The [SQL reference](/sql-reference/overview/) is the source of truth for what's supported.
 
