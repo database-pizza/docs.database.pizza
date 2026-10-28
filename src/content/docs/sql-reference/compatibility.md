@@ -57,7 +57,6 @@ Do not rely on the following behavior yet:
 - `SELECT ... FOR UPDATE` and `NOWAIT`/`SKIP LOCKED` are rejected with `0A000`; transactions are optimistic and have no row locks.
 - `RIGHT JOIN`, `FULL JOIN`, `JOIN ... USING`, and `NATURAL JOIN` may parse but do not execute correctly.
 - DDL changes such as `CREATE TABLE` are not rolled back by `ROLLBACK`.
-- `GROUP_CONCAT` and `TOTAL` are not safe to execute.
 - Result column type metadata is only reported for single-table direct column projections; expressions, joins, and unknown columns are still reported as `TEXT`.
 
 Unsupported syntax normally returns an error. The items above are called out separately because accepting syntax without enforcing its semantics can cause incorrect application behavior.
@@ -161,8 +160,8 @@ PizzaSQL accepts many familiar type names but does not implement PostgreSQL's st
 | --- | --- | --- | --- |
 | `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX` | Supported | Supported | Supported |
 | `COUNT(DISTINCT ...)` | Supported | Supported | Supported |
-| `GROUP_CONCAT` | Unsafe; currently has a recursion failure | Supported | Use `STRING_AGG` |
-| `TOTAL` | Unsafe; currently has a recursion failure | Supported | Unsupported |
+| `GROUP_CONCAT` | Supported, including `DISTINCT` and a custom separator | Supported | Use `STRING_AGG` |
+| `TOTAL` | Supported; returns `0` on an empty set | Supported | Unsupported |
 | Common string functions | Partial | Supported | Supported |
 | Common math functions | Partial | Supported | Supported |
 | `CEIL`, `FLOOR`, and `MOD` | Unsafe; declared but currently return `NULL` | Supported | Supported |
