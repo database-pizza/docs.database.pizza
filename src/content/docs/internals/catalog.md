@@ -41,7 +41,7 @@ This means concurrent DDL and DML from different connections eventually converge
 
 The catalog is deliberately minimal:
 
-- It does **not** store `CHECK` or `FOREIGN KEY` constraints — those are discarded at `CREATE TABLE`. `UNIQUE` constraints are materialized into unique index definitions (see [Constraints](/sql-reference/constraints/)).
+- It does **not** store `CHECK` or `FOREIGN KEY` constraints — those DDL clauses are rejected at `CREATE TABLE` with SQLSTATE `0A000`. `UNIQUE` constraints are materialized into unique index definitions (see [Constraints](/sql-reference/constraints/)).
 - It does not store index definitions (those live in the `SchemaManager`/storage, not the analyzer catalog).
 - It does not store statistics, histograms, or anything a cost-based planner would use — there is no planner.
 

@@ -83,7 +83,7 @@ Common causes:
 
 - **`no such table`** — the table doesn't exist yet, or you're connected to the wrong database.
 - **`syntax error`** — a typo, or Postgres-only syntax. PizzaSQL uses SQLite-compatible SQL; check [Compatibility](/sql-reference/compatibility/).
-- **`duplicate primary key`** — an insert reused an existing primary-key value. Other `UNIQUE` constraints are not enforced.
+- **`duplicate primary key`** — an insert reused an existing primary-key value. `UNIQUE` constraints and unique indexes are enforced too and return SQLSTATE `23505` on the PostgreSQL path.
 - **`NOT NULL constraint failed`** — a `NULL` value in a `NOT NULL` column.
 
 ## Transactions over HTTP

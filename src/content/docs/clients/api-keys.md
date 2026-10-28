@@ -78,7 +78,7 @@ Revoking a key takes effect immediately; any application using it loses access o
 
 - Keys are stored hashed; only the prefix is visible after creation.
 - `DB_ACCESS` and `REST_API` keys are bound to a database. Reserved platform keys are organization-level.
-- A key used for the Postgres protocol is sent as a cleartext password to the proxy, and the proxy currently declines TLS — factor that into how you handle the connection (see [Connect](/getting-started/connect/)).
+- A key used for the Postgres protocol is sent as the password to the proxy. TLS terminates at the proxy when the deployment installs a certificate (`sslmode=require`); without one the key crosses the client-to-proxy hop in cleartext. The proxy-to-engine loopback hop is always plaintext (see [Connect](/getting-started/connect/)).
 
 ## Next
 
