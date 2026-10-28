@@ -202,7 +202,7 @@ PostgreSQL wire compatibility allows some PostgreSQL clients to connect. It does
 | `pg_catalog` | Unsupported | Unsupported | Supported |
 | Query cancellation | Unsupported | Not applicable | Supported |
 | `COPY` | Unsupported | Not applicable | Supported |
-| `LISTEN` and `NOTIFY` | Unsupported | Not applicable | Supported |
+| `LISTEN` and `NOTIFY` | Supported; no durable replay | Not applicable | Supported |
 | Node.js `pg` | Basic use verified | Not applicable | Supported |
 | psycopg, pgx, and lib/pq | Unverified | Not applicable | Supported |
 | ORMs and migration frameworks | Unverified | Varies | Supported |
@@ -215,6 +215,7 @@ Because the wire is PostgreSQL-compatible, drivers may issue introspection queri
 The managed database.pizza proxy layers additional behavior on top of PizzaSQL:
 
 - API keys with `read`, `write`, `alter_table`, and `drop_table` scopes gate statements.
+- Channel operations require `listen:<pattern>` and `notify:<pattern>` scopes; see [Notifications](/sql-reference/notifications/).
 - PostgreSQL TLS terminates at the managed proxy when `PGPROXY_TLS_CERT`/`PGPROXY_TLS_KEY` are configured. `PGPROXY_TLS_MODE=optional` (the default with a certificate) offers TLS while keeping `sslmode=disable` clients working; `required` rejects plaintext startup with `08P01`; `off` disables TLS. Clients can use `sslmode=require` (or `verify-full` with a trusted, hostname-matching certificate). If a deployment has not installed certificates, `SSLRequest` is declined and only `sslmode=disable` connects; use that only over a trusted hop. TLS ends at the proxy — the loopback hop to PizzaSQL is plaintext.
 - Exhausting the per-organization connection quota returns SQLSTATE `53300` with the current/limit numbers and a retry hint. Quota and idle-connection behavior are documented in [Limits & quotas](/guides/limits/#connections-and-idle-disconnects).
 - The PostgreSQL database name is `org/db`; the slash must be percent-encoded in a URI.
