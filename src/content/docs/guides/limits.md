@@ -59,7 +59,13 @@ Imports of existing SQLite databases skip several constructs: views, triggers, p
 
 ## TLS and connectivity
 
-The managed PostgreSQL proxy supports TLS termination and can require it (`PGPROXY_REQUIRE_TLS` rejects plaintext with `08P01`). When the deployment has a certificate installed, connect with `sslmode=require` (or `verify-full`). If SSL negotiation is declined, that deployment has not enabled TLS yet and only `sslmode=disable` works; use it only over a trusted hop. The HTTP surface is HTTPS-only. TLS ends at the proxy: the loopback hop to PizzaSQL is plaintext. See the security notes in [API keys & permissions](/clients/api-keys/).
+The managed PostgreSQL proxy supports TLS termination with a deployment setting (`PGPROXY_TLS_MODE`):
+
+- `optional` (default when a certificate is installed) offers TLS; `sslmode=prefer`/`require` clients upgrade, while `sslmode=disable` clients keep working.
+- `required` rejects plaintext startup with `08P01`. Clients pinned to `sslmode=disable` or `ssl: false` must be updated first.
+- `off` disables TLS even if certificate paths are configured.
+
+If SSL negotiation is declined, that deployment has no certificate installed and only `sslmode=disable` works; use it only over a trusted hop. The HTTP surface is HTTPS-only. TLS ends at the proxy: the loopback hop to PizzaSQL is plaintext. See the security notes in [API keys & permissions](/clients/api-keys/) and the client impact matrix in [PostgreSQL clients](/clients/postgresql/#discovery-and-quota-errors).
 
 ## Related
 
