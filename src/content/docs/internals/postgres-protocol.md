@@ -10,7 +10,7 @@ PizzaSQL implements a **partial** PostgreSQL wire protocol (v3.0) so that *some*
 ### Startup and auth
 
 - Accepts the standard startup message and negotiates the protocol version.
-- **SSL is not supported**: an SSLRequest is answered with `N` (decline), after which the client should retry without SSL.
+- **TLS is optional**: an SSLRequest is answered with `S` when the proxy has a certificate and the rest of the session runs over TLS; otherwise it is answered with `N` (decline) and the client retries without SSL. `PGPROXY_REQUIRE_TLS` rejects plaintext startup with `08P01`.
 - Authentication is `AuthenticationOk` (no password required) at the engine level.
 - The server advertises these parameter statuses:
   - `server_version` = `14.0 (PizzaSQL)` (so drivers requiring PG 9.x+ are satisfied)
@@ -60,7 +60,7 @@ Message frames are size-capped (`16 MiB` for normal messages, `1 MiB` for startu
 
 On database.pizza, customers do **not** reach the engine directly. A proxy listens at `db.database.pizza:5432` and adds authentication and routing:
 
-1. The client connects and the proxy declines SSL, then requests a **cleartext password**.
+1. The client connects, optionally negotiates TLS, and the proxy requests a **cleartext password** (API key).
 2. The password is your **API key**. The proxy verifies it, checks it belongs to the organization and (if scoped) the database.
 3. The database name in the connection string must be **`org/db`** (e.g. `acme/production`). In a connection URI the slash must be percent-encoded: `acme%2Fproduction`.
 4. On success, the proxy opens a TCP tunnel to the engine's PostgreSQL port with the resolved internal **namespace**, and forwards protocol frames in both directions.
@@ -80,7 +80,7 @@ PGPASSWORD='pz_live_REPLACE_ME' psql \
 
 ## What this means for you
 
-- **TLS is not available.** The proxy declines SSL, so connections use `sslmode=disable` (or your client's equivalent) and your API key and query traffic travel in cleartext. Do not use the wire protocol for sensitive data over an untrusted network; the HTTP API is HTTPS-only.
+- **TLS terminates at the proxy, when enabled.** With a certificate installed, `sslmode=require` protects the client-to-proxy hop. Without one, SSL negotiation is declined and the API key travels in cleartext; use that only over a trusted hop. The proxy-to-engine loopback hop is plaintext in both cases. The HTTP API is HTTPS-only.
 - Your PostgreSQL *password* is the API key; the user is ignored.
 - The database name is `org/db`, not a bare name.
 - Only the catalog tables listed above are available to tools for introspection; anything deeper fails.

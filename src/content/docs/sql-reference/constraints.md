@@ -25,6 +25,8 @@ Constraints in PizzaSQL fall into two camps: the ones that are actually implemen
 
 - `DEFAULT expr` is evaluated when the table is created, then stored and applied to inserted rows that omit the column.
 - Because it's evaluated at DDL time, only constant expressions are useful. There is no `DEFAULT (expr)` re-evaluation per row.
+- A non-constant default (`CURRENT_TIMESTAMP`, `datetime('now')`, a scalar function call, a column reference) is **rejected at DDL with SQLSTATE `0A000`**. Accepting it would silently freeze one value for the life of the table. Declare the column without a default and supply a fresh value on each `INSERT`.
+- A constant `DEFAULT` on `ADD COLUMN` applies to later inserts only; existing rows are not backfilled. See [ALTER TABLE](/sql-reference/statements/#alter-table).
 
 ### AUTOINCREMENT
 
@@ -42,6 +44,10 @@ Constraints in PizzaSQL fall into two camps: the ones that are actually implemen
 - Composite unique indexes are enforced, and integral numerics are canonicalized so `1` (integer) and `1.0` (real) collide the way SQLite's affinity does.
 
 The implementation is scan-based: a table with a unique index serializes its core writes on the table gate so the validating scan cannot race another writer, and multi-row DML against such a table runs in an implicit transaction for statement-level atomicity. This is **not** full SQLite or PostgreSQL concurrency semantics, and DDL remains non-transactional. See [Indexes](/engine/indexes/) and [Compatibility](/sql-reference/compatibility/).
+
+Outside an explicit transaction a duplicate is rejected by the `INSERT`/`UPDATE` itself. Inside an explicit transaction, writes are buffered and the unique indexes are validated at **`COMMIT`**, so the offending statement can succeed and the `COMMIT` then fail. A failed `COMMIT` has already rolled the transaction back and leaves the session usable (the next statement starts a new implicit transaction).
+
+The wire protocol reports a duplicate as SQLSTATE `23505` with the violated index name in the message. The managed HTTP query API reports HTTP `409` with `"code": "23505"` and the index name in `details.constraint`. `INSERT ... ON CONFLICT` and `INSERT OR IGNORE`/`REPLACE` remain the idempotent write shapes; a plain insert is not retry-safe by itself.
 
 ### Fresh schemas vs. existing tables
 

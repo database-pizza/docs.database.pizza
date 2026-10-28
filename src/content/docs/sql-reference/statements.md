@@ -24,6 +24,8 @@ LIMIT n [OFFSET m];
 - `LIMIT`/`OFFSET` accept numeric expressions.
 - **Set operations**: `UNION`, `UNION ALL`, `INTERSECT`, and `EXCEPT` are supported with standard precedence (`INTERSECT` binds tighter than `UNION`/`EXCEPT`). A compound query's `ORDER BY`/`LIMIT`/`OFFSET` apply to the combined result.
 - **Subqueries** are supported in `FROM` (derived tables require an alias), as scalar expressions, in `IN (SELECT ...)`, and in `EXISTS (SELECT ...)`, including correlated subqueries.
+- **Row-locking clauses are rejected.** `FOR UPDATE`, `FOR SHARE`, `FOR NO KEY UPDATE`, and the `NOWAIT`/`SKIP LOCKED` variants fail with SQLSTATE `0A000`. There are no row locks; use the optimistic transaction model and retry `40001` (see [Concurrency](/engine/concurrency/)).
+- **Array predicates are rejected.** `expr = ANY(...)`, `expr <> ALL(...)`, and array literals fail with `0A000`; rewrite with `IN (?, ?, ...)` and individual parameters.
 
 ### Joins
 
@@ -89,7 +91,7 @@ CREATE TABLE [IF NOT EXISTS] table (
 - `IF NOT EXISTS` silently succeeds if the table already exists.
 - `PRIMARY KEY`, `NOT NULL`, and `DEFAULT` have an effect; `AUTOINCREMENT` is accepted but adds no behavior. Inline and table-level `UNIQUE` constraints are materialized into unique indexes and enforced on the core write paths — see [Constraints](/sql-reference/constraints/). `CHECK` and `FOREIGN KEY` are still parsed and discarded.
 - A table-level `PRIMARY KEY (a, b)` uses the first named column as the primary key; composite keys are not truly supported.
-- `DEFAULT expr` is evaluated when the table is created, so it must be a constant expression. Signed numeric literals (`DEFAULT -1`, `DEFAULT +5`, `DEFAULT (-7)`) are accepted.
+- `DEFAULT expr` is evaluated when the table is created, so it must be a constant expression and is stored as the evaluated value. Signed numeric literals (`DEFAULT -1`, `DEFAULT +5`, `DEFAULT (-7)`), strings, blobs, `NULL`, and boolean literals are accepted. A non-constant default such as `DEFAULT CURRENT_TIMESTAMP`, `DEFAULT datetime('now')`, or `DEFAULT lower('X')` is rejected at DDL with SQLSTATE `0A000` rather than being frozen at table-creation time. There is no per-row default evaluation; supply the value on `INSERT` instead.
 - A bare `NULL` column specifier is accepted as a no-op (columns are nullable by default); `NOT NULL` still applies whenever it appears.
 - `AUTOINCREMENT` is accepted but has no extra behaviour over a plain `INTEGER PRIMARY KEY`.
 
@@ -102,9 +104,12 @@ ALTER TABLE table RENAME TO new_name;
 ALTER TABLE table RENAME COLUMN old TO new;
 ```
 
-- `ADD COLUMN` appends a nullable column; `ADD COLUMN IF NOT EXISTS column ...` is also accepted.
-- You cannot drop the primary-key column.
-- Renaming is schema-only; index definitions referencing renamed columns are **not** updated automatically.
+- `ADD COLUMN` appends schema metadata only. **Existing rows are not rewritten or backfilled**: they read `NULL` for the new column even when it declares `NOT NULL` or a `DEFAULT`. The declared default applies only to later `INSERT`s that omit the column. If you need a value on existing rows, run an explicit `UPDATE`.
+- `ADD COLUMN IF NOT EXISTS column ...` is idempotent and is the supported shape for boot-time migrations. The check and schema append are serialized within one engine process, so concurrent runners on the same process do not duplicate the column. Separate engine processes do not coordinate; run schema migrations from a single runner.
+- `DROP COLUMN` rewrites **every remaining row** to remove the field, so its cost is proportional to table size and it holds the table gate for the duration. It also leaves index metadata that references the dropped column untouched; drop those indexes first or recreate them afterwards. The primary-key column cannot be dropped.
+- `RENAME COLUMN` rewrites every row key and does not update index metadata, expression indexes, views, or generated-column SQL that mention the old name. Drop and recreate affected indexes after a rename. `RENAME TO` is schema-only.
+- `ALTER TABLE ADD COLUMN ... DEFAULT expr` follows the same constant-only rule as `CREATE TABLE`: a non-constant default is rejected with `0A000`, and even a constant default does not backfill existing rows.
+- DDL is not transactional and is not rolled back by `ROLLBACK`; a failed multi-step migration must be repaired explicitly.
 
 ## CREATE / DROP INDEX and VIEW
 

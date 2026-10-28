@@ -74,7 +74,7 @@ PGPASSWORD='pz_live_REPLACE_ME' psql \
 Three details matter here:
 
 - The **database name is `acme/production`** — the slash is part of the name. In a connection URI it must be percent-encoded as `acme%2Fproduction`.
-- **TLS is currently declined** by the proxy, so connect with `sslmode=disable`; your key and queries travel in cleartext over the wire.
+- **TLS depends on the deployment**: use `sslmode=require` when the proxy serves a certificate, and `sslmode=disable` only when SSL negotiation is declined or the hop is trusted. Even with TLS, the proxy-to-engine loopback hop is plaintext.
 - The wire protocol is **partially** PostgreSQL-compatible — `psql` works, but the SQL you send is SQLite-style, not PostgreSQL. See [PostgreSQL clients](/clients/postgresql/) and [Compatibility](/sql-reference/compatibility/).
 
 Full details are in [Connect](/getting-started/connect/) and [PostgreSQL clients](/clients/postgresql/).

@@ -17,6 +17,24 @@ This page describes behavior verified in the current source and tests. The SQLit
 | **Unsafe** | Syntax may be accepted, but behavior is incorrect or not enforced. |
 | **Unverified** | Expected or claimed, but not covered by reliable automated evidence. |
 
+## Engine build and capability discovery
+
+Every managed PostgreSQL endpoint reports three separate identities so a client can pin behavior:
+
+| Surface | Value |
+| --- | --- |
+| `server_version` ParameterStatus / `SHOW server_version` / `version()` | PostgreSQL compatibility string (`14.0 (PizzaSQL)`) |
+| `pizzasql.version` and `pizzasql.commit` ParameterStatus | the real engine build and source commit |
+| `SELECT pizzasql_version()` | the engine build, independent of the PostgreSQL compatibility string |
+| `GET /version` on the engine HTTP API | `version`, `commit`, `date`, `postgres_compat`, and `sqlite_compat` |
+| `GET /capabilities` on the engine HTTP API | machine-readable capability document (`schema_version`, constraints, DDL, transactions, types, parameters, JSON, error codes, docs links) |
+
+The capability document is versioned by its own `schema_version` and names the engine `engine_version` it describes. The pg-wire build identity and the engine HTTP document are the sources of truth; use them to delete version-specific workarounds rather than sniffing `server_version`.
+
+Compatibility is versioned with each docs release: a release note records the PizzaSQL build, and the compatibility page and capability document for that build are published together. Behavior that clients can observe follows semantic versioning — removals and semantic changes require a major release, additive capabilities a minor release, and fixes a patch release. A behavior change is announced in the release notes, the capability document is updated in the same release, and the old behavior is deprecated for at least one minor release before removal. Client-visible SQLSTATE codes are part of the contract and are not changed in a patch release.
+
+The engine repository also runs a pChat-style compatibility suite (`make compat`) on every CI run. It covers DDL, upsert idempotency, UNIQUE enforcement, pagination, parameters, transaction state, and error codes; results are published as a CI artifact. Release tags run it in strict mode, where a missing documented capability fails the gate.
+
 ## Positioning
 
 | Dimension | PizzaSQL |
@@ -32,8 +50,11 @@ This page describes behavior verified in the current source and tests. The SQLit
 
 Do not rely on the following behavior yet:
 
-- `CHECK` and foreign-key declarations may be accepted but are not enforced. `UNIQUE` constraints and unique indexes are enforced on the core write paths, but only through validating scans — this is not a durable uniqueness claim and does not imply full SQLite or PostgreSQL concurrency semantics. `UNIQUE` is materialized only when a table is created; tables created before this support are not retroactively enforced after an upgrade.
-- Composite primary keys retain only their first column.
+- `CHECK` and foreign-key declarations are accepted but not enforced. `UNIQUE` constraints and unique indexes are enforced on the core write paths, but only through validating scans — this is not a durable uniqueness claim and does not imply full SQLite or PostgreSQL concurrency semantics. `UNIQUE` is materialized only when a table is created; tables created before this support are not retroactively enforced after an upgrade.
+- Composite primary keys are rejected at DDL with SQLSTATE `0A000`; they are never silently reduced to the first column.
+- Non-constant column defaults (`DEFAULT CURRENT_TIMESTAMP`, function calls) are rejected at DDL with `0A000`; there is no per-INSERT default evaluation.
+- Array parameters and `ANY`/`ALL` predicates are rejected with `0A000`; rewrite them as `IN (...)` with individual parameters.
+- `SELECT ... FOR UPDATE` and `NOWAIT`/`SKIP LOCKED` are rejected with `0A000`; transactions are optimistic and have no row locks.
 - `RIGHT JOIN`, `FULL JOIN`, `JOIN ... USING`, and `NATURAL JOIN` may parse but do not execute correctly.
 - DDL changes such as `CREATE TABLE` are not rolled back by `ROLLBACK`.
 - `GROUP_CONCAT` and `TOTAL` are not safe to execute.
@@ -95,19 +116,20 @@ Unsupported syntax normally returns an error. The items above are called out sep
 | Views | Partial; not persisted across executor restarts | Persistent | Persistent |
 | Triggers | Unsupported | Supported | Supported |
 | Single-column primary keys | Supported | Supported | Supported |
-| Composite primary keys | Unsafe; only the first column is retained | Supported | Supported |
+| Composite primary keys | Rejected with `0A000` | Supported | Supported |
 | `NOT NULL` | Supported | Supported | Supported |
 | `UNIQUE` constraints | Partial; enforced on core write paths via validating scans | Supported | Supported |
 | Unique indexes | Partial; enforced on core write paths via validating scans | Supported | Supported |
 | `CHECK` constraints | Unsafe; parsed but not enforced | Supported | Supported |
 | Foreign keys | Unsafe; parsed but not enforced | Supported when enabled | Supported |
-| Literal defaults | Partial | Supported | Supported |
-| Expression defaults | Partial | Supported | Supported |
-| `DEFAULT CURRENT_TIMESTAMP` | Unsafe; does not evaluate per inserted row | Supported | Supported |
+| Literal defaults | Supported (constant values) | Supported | Supported |
+| Expression defaults | Rejected with `0A000` | Supported | Supported |
+| `DEFAULT CURRENT_TIMESTAMP` | Rejected with `0A000`; no per-row evaluation | Supported | Supported |
+| Array parameters and `ANY`/`ALL` | Rejected with `0A000` | Not applicable | Supported |
 | `AUTOINCREMENT` | Partial; accepted without distinct SQLite semantics | Supported | Not applicable |
 | Identity and serial columns | Unsupported | Not applicable | Supported |
 | Generated columns | Unsupported | Supported | Supported |
-| Implicit `rowid` | Partial | Supported | Unsupported |
+| Implicit `rowid` | Supported; `rowid`/`oid`/`_rowid_` are `BIGINT` over the wire and form a keyset cursor when auto-assigned | Supported | Unsupported |
 
 ## Types and expressions
 
@@ -123,7 +145,7 @@ PizzaSQL accepts many familiar type names but does not implement PostgreSQL's st
 | Strict PostgreSQL types | Unsupported | Unsupported | Supported |
 | `NUMERIC(p,s)` precision enforcement | Unsupported | Unsupported | Supported |
 | Native date and time types | Unsupported; values remain dynamically typed | Unsupported | Supported |
-| JSON values, functions, and operators | Unsupported; `JSON` names have no JSON semantics | Available with SQLite JSON support | Supported with `JSON` and `JSONB` |
+| JSON values and functions | Supported as text plus the JSON1 function set; no `JSONB` type or `->`/`->>` operators | Available with SQLite JSON support | Supported with `JSON` and `JSONB` |
 | Arrays, UUIDs, enums, and intervals | Partial; `UUID` is accepted as a text alias with no native PostgreSQL UUID semantics | Unsupported as native types | Supported |
 | `CAST` to integer, real, and text | Supported | Supported | Supported |
 | Other `CAST` targets | Partial; many targets are no-ops | Affinity based | Strictly typed |
@@ -175,7 +197,7 @@ PostgreSQL wire compatibility allows some PostgreSQL clients to connect. It does
 | Binary parameters | Partial; limited boolean and integer support | Not applicable | Supported |
 | Binary results | Unsupported | Not applicable | Supported |
 | Correct result type OIDs | Partial; single-table direct column projections report typed OIDs, expressions and joins report `TEXT` | Not applicable | Supported |
-| PostgreSQL TLS | Unsupported | Not applicable | Supported |
+| PostgreSQL TLS | Supported when the managed proxy is configured with a certificate; sslmode contract below | Not applicable | Supported |
 | PostgreSQL SCRAM and MD5 authentication | Unsupported | Not applicable | Supported |
 | `information_schema` | Partial emulation | Unsupported | Supported |
 | `pg_catalog` | Unsupported | Unsupported | Supported |
@@ -194,7 +216,8 @@ Because the wire is PostgreSQL-compatible, drivers may issue introspection queri
 The managed database.pizza proxy layers additional behavior on top of PizzaSQL:
 
 - API keys with `read`, `write`, `alter_table`, and `drop_table` scopes gate statements.
-- PostgreSQL TLS is currently declined. Connections require `sslmode=disable`, so credentials and query traffic are not protected on an untrusted network.
+- PostgreSQL TLS terminates at the managed proxy when `PGPROXY_TLS_CERT`/`PGPROXY_TLS_KEY` are configured. Clients can use `sslmode=require` (or `verify-full` with a trusted, hostname-matching certificate). When `PGPROXY_REQUIRE_TLS=true`, plaintext startup is rejected with `08P01`. If a deployment has not installed certificates, `SSLRequest` is declined and only `sslmode=disable` connects; use that only over a trusted hop. TLS ends at the proxy — the loopback hop to PizzaSQL is plaintext.
+- Exhausting the per-organization connection quota returns SQLSTATE `53300` with the current/limit numbers and a retry hint. Quota and idle-connection behavior are documented in [Limits & quotas](/guides/limits/#connections-and-idle-disconnects).
 - The PostgreSQL database name is `org/db`; the slash must be percent-encoded in a URI.
 - Transaction statements are rejected by the managed HTTP query endpoints and forwarded by the PostgreSQL proxy.
 
