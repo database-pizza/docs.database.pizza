@@ -35,6 +35,19 @@ Compatibility is versioned with each docs release: a release note records the Pi
 
 The engine repository also runs a pChat-style compatibility suite (`make compat`) on every CI run. It covers DDL, upsert idempotency, UNIQUE enforcement, pagination, parameters, transaction state, and error codes; results are published as a CI artifact. Release tags run it in strict mode, where a missing documented capability fails the gate.
 
+### Correctness fixes in current source builds
+
+Recent source builds fix indexed equality/NULL evaluation and qualified JOIN
+predicate binding, validate `NOT NULL` after defaults and assignments (`23502`),
+and stage scan-based mutations and DML `RETURNING` before atomic publication.
+Failed evaluation must not leave earlier rows from that statement committed.
+Storage transaction limits still apply: a statement too large for one atomic
+batch fails instead of being split into independent commits.
+
+These are source-build guarantees, not a claim that every hosted tenant has
+been upgraded. App deployment and tenant engine approval/promotion are separate.
+Use the engine identity and capability document to identify the running build.
+
 ## Positioning
 
 | Dimension | PizzaSQL |
@@ -116,7 +129,7 @@ Unsupported syntax normally returns an error. The items above are called out sep
 | Triggers | Unsupported | Supported | Supported |
 | Single-column primary keys | Supported | Supported | Supported |
 | Composite primary keys | Rejected with `0A000` | Supported | Supported |
-| `NOT NULL` | Supported | Supported | Supported |
+| `NOT NULL` | Supported on final insert/update rows; `23502` on current builds | Supported | Supported |
 | `UNIQUE` constraints | Partial; enforced on core write paths via validating scans | Supported | Supported |
 | Unique indexes | Partial; enforced on core write paths via validating scans | Supported | Supported |
 | `CHECK` constraints | Rejected with `0A000` | Supported | Supported |
@@ -216,6 +229,7 @@ The managed database.pizza proxy layers additional behavior on top of PizzaSQL:
 
 - API keys with `read`, `write`, `alter_table`, and `drop_table` scopes gate statements.
 - Channel operations require `listen:<pattern>` and `notify:<pattern>` scopes; see [Notifications](/sql-reference/notifications/).
+- Updated proxies relay scope errors to engines advertising `pizzasql.proxy_errors=1`, returning `42501` and preserving failed-transaction/Sync recovery. With an older engine, the updated proxy fails closed with FATAL `42501` and disconnects; reconnect is required. See [PostgreSQL protocol](/internals/postgres-protocol/).
 - PostgreSQL TLS terminates at the managed proxy when `PGPROXY_TLS_CERT`/`PGPROXY_TLS_KEY` are configured. `PGPROXY_TLS_MODE=optional` (the default with a certificate) offers TLS while keeping `sslmode=disable` clients working; `required` rejects plaintext startup with `08P01`; `off` disables TLS. Clients can use `sslmode=require` (or `verify-full` with a trusted, hostname-matching certificate). If a deployment has not installed certificates, `SSLRequest` is declined and only `sslmode=disable` connects; use that only over a trusted hop. TLS ends at the proxy — the loopback hop to PizzaSQL is plaintext.
 - Exhausting the per-organization connection quota returns SQLSTATE `53300` with the current/limit numbers and a retry hint. Quota and idle-connection behavior are documented in [Limits & quotas](/guides/limits/#connections-and-idle-disconnects).
 - The PostgreSQL database name is `org/db`; the slash must be percent-encoded in a URI.

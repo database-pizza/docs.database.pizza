@@ -18,8 +18,10 @@ Constraints in PizzaSQL fall into two camps: the ones that are actually implemen
 
 ### NOT NULL
 
-- `NOT NULL` is enforced on `INSERT`: inserting a row that omits a `NOT NULL` column with no default is rejected with `missing required column`.
-- It does **not** enforce on `UPDATE` to `NULL` in all paths, and does not validate type.
+- Current source builds validate the final row on `INSERT`, bulk insert, `UPDATE`, and upsert, including transaction overlays. A violation is SQLSTATE `23502` over the PostgreSQL wire protocol.
+- Omitting a column applies its constant default, if any. Explicit `NULL` does **not** select that default and is rejected for a `NOT NULL` column.
+- Validation happens after defaults and assignments. A failed multi-row statement leaves no partial statement effects; earlier successful statements in an explicit transaction remain staged until commit or rollback.
+- `NOT NULL` does not enforce a PostgreSQL-style strict column type. Older tenant builds had gaps in defaulted inserts and updates; check the engine build/capabilities rather than assuming an app deployment upgraded the engine.
 
 ### DEFAULT
 
@@ -43,7 +45,7 @@ Constraints in PizzaSQL fall into two camps: the ones that are actually implemen
 - `NULL` values are exempt — multiple `NULL`s are allowed, matching SQLite.
 - Composite unique indexes are enforced, and integral numerics are canonicalized so `1` (integer) and `1.0` (real) collide the way SQLite's affinity does.
 
-The implementation is scan-based: a table with a unique index serializes its core writes on the table gate so the validating scan cannot race another writer, and multi-row DML against such a table runs in an implicit transaction for statement-level atomicity. This is **not** full SQLite or PostgreSQL concurrency semantics, and DDL remains non-transactional. See [Indexes](/engine/indexes/) and [Compatibility](/sql-reference/compatibility/).
+The implementation is scan-based: a table with a unique index serializes its core writes on the table gate so the validating scan cannot race another writer, and validation sees the final transaction overlay. Scan-based `UPDATE`/`DELETE`, primary-key moves, and DML with `RETURNING` use a statement-level atomic boundary whether or not the table has a unique index. This is **not** full SQLite or PostgreSQL concurrency semantics, and DDL remains non-transactional. See [Indexes](/engine/indexes/) and [Compatibility](/sql-reference/compatibility/).
 
 Outside an explicit transaction a duplicate is rejected by the `INSERT`/`UPDATE` itself. Inside an explicit transaction, writes are buffered and the unique indexes are validated at **`COMMIT`**, so the offending statement can succeed and the `COMMIT` then fail. A failed `COMMIT` has already rolled the transaction back and leaves the session usable (the next statement starts a new implicit transaction).
 
