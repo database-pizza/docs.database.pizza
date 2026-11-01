@@ -63,6 +63,12 @@ curl -s https://db.database.pizza/acme/production/query \
 
 The HTTP query API is documented in full at [HTTP query API](/clients/http-api/).
 
+### With an agent over MCP
+
+The same key works with the [MCP endpoint](/clients/mcp/). Copy the config from
+the `/start` success screen, or point an MCP client at
+`https://db.database.pizza/mcp` with `Authorization: Bearer pz_live_REPLACE_ME`.
+
 ### Over PostgreSQL
 
 ```bash
