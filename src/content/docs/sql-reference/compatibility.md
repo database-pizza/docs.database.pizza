@@ -53,7 +53,7 @@ Use the engine identity and capability document to identify the running build.
 | Dimension | PizzaSQL |
 | --- | --- |
 | SQL dialect | SQLite-inspired, with documented differences |
-| Wire protocol | Partial PostgreSQL v3 simple and extended query protocols; Describe, binary results and bounded portals are explicitly rejected |
+| Wire protocol | Partial PostgreSQL v3 simple and extended query protocols; Describe returns compatibility NoData, while binary results and bounded portals are explicitly rejected |
 | Type system | Dynamic values with partial SQLite-style affinity |
 | Storage | Versioned binary rows in PizzaKV |
 | Transactions | Optimistic compare-batch DML transactions; DDL is non-transactional |
