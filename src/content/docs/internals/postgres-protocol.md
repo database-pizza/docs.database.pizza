@@ -17,6 +17,8 @@ PizzaSQL implements a **partial** PostgreSQL wire protocol (v3.0) so that *some*
   - `server_encoding`, `client_encoding` = `UTF8`
   - `DateStyle` = `ISO, MDY`
   - `TimeZone` = `UTC`
+  - `pizzasql.version` / `pizzasql.commit` identify the actual engine build
+  - `pizzasql.proxy_errors` = `1` on builds supporting ordered managed-proxy scope errors
 
 ### Query protocol
 
@@ -30,7 +32,8 @@ PizzaSQL implements a **partial** PostgreSQL wire protocol (v3.0) so that *some*
 
 - Completion tags: `INSERT 0 n`, `UPDATE n`, `DELETE n`, `SELECT n`, `CREATE TABLE`, `ALTER TABLE`, etc.
 - Errors carry a severity (`ERROR`/`FATAL`), an SQLSTATE code (a subset: `42601` syntax error, `08P01` protocol violation, `0A000` feature not supported, `25P02` transaction aborted, `XX000` internal, `42P07` duplicate table, `42703` undefined column, …), and a message.
-- Transaction status is tracked in `ReadyForQuery`: idle (`I`), in transaction block (`T`), failed (`E`). In a failed block, only `ROLLBACK` (or `ROLLBACK TO SAVEPOINT`) is accepted; everything else returns `25P02`.
+- Transaction status is tracked in `ReadyForQuery`: idle (`I`), in transaction block (`T`), failed (`E`). An ERROR, including an ordinary syntax error, fails an open transaction. In a failed block, only `ROLLBACK` (or `ROLLBACK TO SAVEPOINT`) is accepted; everything else returns `25P02`.
+- A failed extended cycle discards subsequent messages until `Sync`; `Flush` and `Terminate` remain usable. `Sync` reports the engine's actual transaction state.
 
 ### Catalog emulation
 
@@ -67,9 +70,14 @@ On database.pizza, customers do **not** reach the engine directly. A proxy liste
 
 While forwarding, the proxy:
 
-- **Enforces API-key scopes** on every simple query and prepared statement (`read`, `write`, `alter_table`, `drop_table`). A statement the key isn't allowed to run is rejected with `insufficient_privilege`.
+- **Enforces API-key scopes** on every simple query and prepared statement (`read`, `write`, `alter_table`, `drop_table`). Updated proxies replace denied Query/Parse frames with an ordered engine error relay when the engine advertises `pizzasql.proxy_errors=1`. The denied SQL is never executed; the engine returns `42501` (`insufficient_privilege`) and owns transaction failure and Sync recovery. On older engines, the updated proxy returns FATAL `42501` and disconnects instead of synthesizing an incorrect idle state. Reconnect after that fallback; uncommitted work is rolled back.
 - **Tracks queries** for metrics and quota billing by correlating client executions with backend completion frames.
-- **Forwards transactions** unchanged, so `BEGIN`/`COMMIT`/`ROLLBACK` work over the proxy (unlike the HTTP endpoint, which rejects them).
+- **Forwards transactions** unchanged, so `BEGIN`/`COMMIT`/`ROLLBACK` work over the proxy (unlike the managed HTTP endpoint, which rejects them).
+- **Closes both tunnel directions** when either peer disconnects or forwarding fails, releasing the connection slot even without a client `Terminate`. Healthy established sessions have no proxy idle deadline, including idle LISTEN subscribers.
+
+The relay is a negotiated private extension between the updated proxy and engine;
+ordinary clients do not send it. Deploying the app does not upgrade tenant
+engines, so recoverable scope errors require both sides to support the relay.
 
 Practical connection string (using the key as the password):
 

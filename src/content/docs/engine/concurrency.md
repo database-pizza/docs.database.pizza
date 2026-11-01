@@ -31,23 +31,42 @@ The locks protecting these structures are implementation locks, not SQL row lock
 ## Connection and executor topology
 
 - **PostgreSQL wire server:** each connection has its own executor and transaction session, while database managers and storage are shared.
-- **HTTP server:** requests use the executor associated with the selected database. The managed HTTP query endpoints reject transaction-control statements.
+- **Engine HTTP server:** each request gets a fresh executor sharing the selected database's schema/table managers. Explicit engine HTTP transactions are identified by a `transactionId` and use their own session executor. The managed HTTP query endpoints reject transaction-control statements.
+- An executor owns mutable session state and is not shared concurrently between connections or requests.
 
 This allows separate connections to issue statements concurrently while keeping each transaction's staged mutations session-local.
+
+## Statement atomicity
+
+Scan-based `UPDATE` and `DELETE`, primary-key moves, and DML with `RETURNING`
+stage the complete statement before one compare-batch commit. Predicate,
+assignment, constraint, encoding, or RETURNING evaluation errors leave no partial
+statement effects. Inside an explicit transaction, only the failed statement's
+staged mutations are rolled back; PostgreSQL ERROR handling still requires
+transaction recovery before further commands.
+
+A proven single-row operation without RETURNING can keep the direct point-CAS
+path. Neither path weakens fsync or divides one atomic statement into separately
+committed chunks. If the storage operation/read-set or byte limit is exceeded,
+the operation fails rather than partially committing.
 
 ## In-memory caches and their invalidation
 
 Several caches live in memory per `TableManager`/`SchemaManager` and affect observable behaviour:
 
-- **Row cache** (`rowCache` / `rowIDMap`): a table's rows, loaded lazily on first `SELECT`. A `SELECT` reads from storage once, then serves from cache until a write invalidates the table.
-- **Index entry cache** (`indexCache`): value→rowids mappings, built lazily (see [Indexes](/engine/indexes/)).
+- **Row-key cache** (`rowKeyCache`): maps hidden rowids to durable primary keys for indexed lookups; it does not cache every row value.
+- **Index entry cache** (`indexCache`): value→rowids mappings, built lazily (see [Indexes](/engine/indexes/)). Row values are still fetched from KV for matching keys.
+- **Count cache**: an exact derived row count used by the narrow `COUNT(*)` fast path.
 - **Schema cache**: table/index definitions, invalidated by DDL.
 
-Writes (`INSERT`/`UPDATE`/`DELETE`) invalidate the affected table's row cache and update any warm in-memory index entries. A table-level or index-level write is a full invalidation, not a per-row patch.
+Point writes update warm in-memory index entries. Transaction commits currently
+invalidate derived indexes and counts for written tables, so the next indexed
+read may rebuild the mapping by scanning durable rows. Schema-changing DDL can
+also invalidate caches.
 
 Implications:
 
-- The first query against a table in a fresh connection (or after a restart) pays a full read of that table from storage.
+- A cold index lookup pays a full table read to build its derived mapping. Ordinary unindexed scans read KV pages; they are not served by an all-row value cache.
 - Because managers are shared per database, writes invalidate affected caches and schema-version changes cause executors to refresh analyzer metadata.
 
 ## No MVCC — what that means
