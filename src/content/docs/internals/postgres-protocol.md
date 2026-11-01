@@ -27,7 +27,7 @@ PizzaSQL implements a **partial** PostgreSQL wire protocol (v3.0) so that *some*
 - `Bind` supports text-format parameters for all types and binary-format parameters for booleans (OID 16), `int2` (21), `int4` (23), and `int8` (20); other binary types fail with `0A000`. Result formats must be all-text (or the empty/default list): binary and per-column result format requests are rejected rather than silently ignored.
 - Parameter OIDs are mapped to a small set: `0` (infer), `16` boolean, `20`/`21`/`23` integers, `26`/`700`/`701`/`1700` numerics; anything else is treated as text.
 - Portal execution is single-use (a portal may be executed once, then must be re-bound). Execute must request the unbounded row limit (`maxRows = 0`); bounded/resumable portals are not implemented and fail with `0A000` before any side effect.
-- `Describe` is not implemented. It fails with `0A000` instead of claiming `NoData` or executing SQL to discover metadata. Clients that require Describe must use a simple query or skip it.
+- `Describe` never executes SQL. Statement Describe returns `ParameterDescription` followed by `NoData`; portal Describe returns `NoData`. `Execute` still sends the real `RowDescription` and rows. Returning `NoData` is a compatibility shim for clients that always send Describe; it is not full PostgreSQL row metadata during Describe.
 
 ### Command completion and errors
 
