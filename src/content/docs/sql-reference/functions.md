@@ -22,6 +22,7 @@ Used in `SELECT` with or without `GROUP BY`, and in `HAVING`.
 | `MIN(expr)` | minimum, ignoring `NULL`s |
 | `MAX(expr)` | maximum, ignoring `NULL`s |
 | `GROUP_CONCAT(expr [, separator])` | concatenates non-`NULL` values with `,` by default; `DISTINCT` de-duplicates; returns `NULL` when there are no values |
+| `STRING_AGG(expr, delimiter)` | PostgreSQL-style text aggregation of non-`NULL` values; `DISTINCT` is supported; a `NULL` delimiter returns `NULL` |
 | `TOTAL(expr)` | sum as a real; returns `0` (not `NULL`) when there are no values |
 
 - Aggregates may be nested inside expressions: `SELECT sum(x) / count(x) FROM t`.
@@ -43,7 +44,8 @@ Used in `SELECT` with or without `GROUP BY`, and in `HAVING`.
 | `replace(s, find, repl)` | replace all occurrences |
 | `instr(s, sub)` | 1-indexed position of `sub`, or `0` |
 | `printf(format, ...)` | `fmt.Sprintf`-style formatting |
-| `concat(a, b, ...)` | concatenate all arguments as text |
+| `concat(a, b, ...)` | concatenate all arguments as text (NULL becomes an empty string) |
+| `concat_ws(sep, a, b, ...)` | join non-`NULL` arguments with `sep`; a `NULL` separator returns `NULL` |
 
 ### Numbers
 
@@ -72,6 +74,7 @@ as text; there is no native JSON type or JSON operators.
 | `json_replace(x, path, value, ...)` / `jsonb_replace(...)` | replace values only where paths exist |
 | `json_remove(x, path, ...)` / `jsonb_remove(...)` | remove values at paths |
 | `json_array(...)` / `jsonb_array(...)` | construct a JSON array |
+| `json_array_length(x[, path])` | number of elements in an array (0 for a valid non-array; malformed JSON fails) |
 | `json_object(key, value, ...)` / `jsonb_object(...)` | construct a JSON object from text keys and values |
 | `json_quote(x)` / `jsonb_quote(x)` | return a JSON string literal for the value |
 | `json_group_array(x)` / `jsonb_group_array(x)` | aggregate values into a JSON array |
@@ -122,6 +125,11 @@ Date/time functions accept SQLite-style time values and modifiers:
 | --- | --- |
 | `pizzasql_version()` | PizzaSQL engine build identity (for example `v0.1.0-3-gabc1234`) |
 | `sqlite_version()` | the documented SQLite compatibility floor, `3.35.0` |
+| `pg_backend_pid()` | the synthetic PostgreSQL backend PID advertised in `BackendKeyData` for this connection |
+
+These helpers cover common driver and migration probes; they are not a claim
+that every PostgreSQL function exists. Aggregate `ORDER BY` inside `STRING_AGG`
+is not supported.
 
 `pizzasql_version()` is deliberately independent of the `server_version`/`version()` PostgreSQL compatibility string and of `sqlite_version()`. See [Engine build and capabilities](/sql-reference/compatibility/#engine-build-and-capability-discovery) for the wire-protocol and HTTP discovery endpoints.
 
@@ -137,6 +145,7 @@ JSON lives in ordinary text. These SQLite JSON1 functions are implemented:
 | `json_extract(text, path, ...)` | path lookup; returns SQL `NULL` for a missing path |
 | `json_set`, `json_insert`, `json_replace`, `json_remove` | partial document updates |
 | `json_array`, `json_object`, `json_quote` | constructors |
+| `json_array_length(text[, path])` | array length; `0` for a valid non-array |
 | `json_group_array` | aggregate that builds a JSON array |
 
 Malformed input to `json`, `json_extract`, or the mutators fails the statement with `malformed JSON`; `json_valid` is the non-throwing probe. There is no binary `JSONB` representation and no `->`/`->>` operator surface; use `json_extract`. Store documents in a `TEXT` column (or a `JSON`-named column, which stores text with NUMERIC affinity and reports `TEXT` on the wire).

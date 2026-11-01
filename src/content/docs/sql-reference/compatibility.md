@@ -53,7 +53,7 @@ Use the engine identity and capability document to identify the running build.
 | Dimension | PizzaSQL |
 | --- | --- |
 | SQL dialect | SQLite-inspired, with documented differences |
-| Wire protocol | Partial PostgreSQL v3 simple and extended query protocols |
+| Wire protocol | Partial PostgreSQL v3 simple and extended query protocols; Describe, binary results and bounded portals are explicitly rejected |
 | Type system | Dynamic values with partial SQLite-style affinity |
 | Storage | Versioned binary rows in PizzaKV |
 | Transactions | Optimistic compare-batch DML transactions; DDL is non-transactional |
@@ -174,6 +174,8 @@ PizzaSQL accepts many familiar type names but does not implement PostgreSQL's st
 | `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX` | Supported | Supported | Supported |
 | `COUNT(DISTINCT ...)` | Supported | Supported | Supported |
 | `GROUP_CONCAT` | Supported, including `DISTINCT` and a custom separator | Supported | Use `STRING_AGG` |
+| `STRING_AGG(expr, delimiter)` | Supported for text values and `DISTINCT`; no aggregate-internal `ORDER BY`; `NULL` delimiter yields `NULL` | Unsupported | Supported |
+| `CONCAT_WS`, `JSON_ARRAY_LENGTH`, `PG_BACKEND_PID` | Supported | `CONCAT_WS` only | Supported |
 | `TOTAL` | Supported; returns `0` on an empty set | Supported | Unsupported |
 | Common string functions | Partial | Supported | Supported |
 | Common math functions | Partial | Supported | Supported |
@@ -181,7 +183,7 @@ PizzaSQL accepts many familiar type names but does not implement PostgreSQL's st
 | SQLite date and time functions | Supported | Supported | Different function set |
 | `last_insert_rowid()`, `changes()`, `total_changes()` | Supported; session-local | Supported | Unsupported |
 | PostgreSQL date and time functions | Unsupported | Unsupported | Supported |
-| JSON functions | Supported: TEXT storage plus JSON1 scalar functions and `json_group_array`; no `JSONB` or `->`/`->>` | Available with SQLite JSON support | Supported |
+| JSON functions | Supported: TEXT storage plus JSON1 scalar functions (including `json_array_length` with one path) and `json_group_array`; no `JSONB` or `->`/`->>` | Available with SQLite JSON support | Supported |
 | Window functions | Partial; `ROW_NUMBER()` only | Supported | Supported |
 
 ## Transactions
