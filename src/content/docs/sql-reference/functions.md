@@ -54,6 +54,27 @@ Used in `SELECT` with or without `GROUP BY`, and in `HAVING`.
 | `min(a, b, ...)` | scalar minimum |
 | `max(a, b, ...)` | scalar maximum |
 | `random()` | random 64-bit integer |
+| `percent_diff(a, b)` | percentage difference between two values |
+
+### JSON
+
+PizzaSQL implements a JSON1-compatible function subset. JSON values are stored
+as text; there is no native JSON type or JSON operators.
+
+| Function | Description |
+| --- | --- |
+| `json(x)` / `jsonb(x)` | validate and normalize JSON text |
+| `json_valid(x)` / `jsonb_valid(x)` | `1` when the value is valid JSON, else `0` |
+| `json_type(x[, path])` | JSON type at the value or path |
+| `json_extract(x, path, ...)` / `jsonb_extract(...)` | extract one or more values by path |
+| `json_set(x, path, value, ...)` / `jsonb_set(...)` | set or create values at paths |
+| `json_insert(x, path, value, ...)` / `jsonb_insert(...)` | insert values only where paths do not exist |
+| `json_replace(x, path, value, ...)` / `jsonb_replace(...)` | replace values only where paths exist |
+| `json_remove(x, path, ...)` / `jsonb_remove(...)` | remove values at paths |
+| `json_array(...)` / `jsonb_array(...)` | construct a JSON array |
+| `json_object(key, value, ...)` / `jsonb_object(...)` | construct a JSON object from text keys and values |
+| `json_quote(x)` / `jsonb_quote(x)` | return a JSON string literal for the value |
+| `json_group_array(x)` / `jsonb_group_array(x)` | aggregate values into a JSON array |
 
 ### NULL handling
 
