@@ -59,15 +59,38 @@ Several caches live in memory per `TableManager`/`SchemaManager` and affect obse
 - **Count cache**: an exact derived row count used by the narrow `COUNT(*)` fast path.
 - **Schema cache**: table/index definitions, invalidated by DDL.
 
-Point writes update warm in-memory index entries. Transaction commits currently
-invalidate derived indexes and counts for written tables, so the next indexed
-read may rebuild the mapping by scanning durable rows. Schema-changing DDL can
-also invalidate caches.
+Point writes update warm in-memory index entries. Current source builds prepare
+and apply column-index/count deltas for commits holding an exclusive table gate.
+Shared-gate optimistic commits still invalidate read caches, avoiding out-of-order
+cache publication across concurrent durable CAS operations. Expression read
+indexes are invalidated rather than assuming evaluator determinism. DDL, restart,
+and ambiguous write outcomes can also require a rebuild.
+
+Column UNIQUE ownership caches use a separate constraint encoder and actual
+durable row keys. They are validated under the exclusive gate and updated only
+after durable success; expression UNIQUE constraints retain scan validation.
 
 Implications:
 
 - A cold index lookup pays a full table read to build its derived mapping. Ordinary unindexed scans read KV pages; they are not served by an all-row value cache.
 - Because managers are shared per database, writes invalidate affected caches and schema-version changes cause executors to refresh analyzer metadata.
+
+## KV publication and scan work
+
+Acknowledgment still follows fsync and publication. Unconditional KV writes can
+coalesce into one durable group; conditional compare-batches remain independent
+and skip the coalescing wait because they cannot share that fsync. Compare checks
+reuse GET's mapped exact-key reader with a file-read fallback—hash equality alone
+never establishes key equality.
+
+SCAN captures page-bounded immutable journal references and at most 64 KiB of
+short-key bytes under the shared publication gate. Response allocations and value
+reads happen after unlock, without borrowing tree nodes that deletes can free.
+The append-only journal keeps captured records valid, just as for GET/MULTI_GET;
+a future reclaiming compactor would need reader pinning.
+
+These optimizations do not change storage format, durability, transaction size
+limits, or the need to handle `40001`.
 
 ## No MVCC — what that means
 
