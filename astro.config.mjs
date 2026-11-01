@@ -115,6 +115,7 @@ export default defineConfig({
           items: [
             { label: 'PostgreSQL clients', link: '/clients/postgresql/' },
             { label: 'HTTP query API', link: '/clients/http-api/' },
+            { label: 'MCP for agents', link: '/clients/mcp/' },
             { label: 'JavaScript', link: '/clients/javascript/' },
             { label: 'Python', link: '/clients/python/' },
             { label: 'REST API (preview)', link: '/clients/rest-api/' },
