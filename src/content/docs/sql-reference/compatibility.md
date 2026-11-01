@@ -63,7 +63,7 @@ Use the engine identity and capability document to identify the running build.
 
 Do not rely on the following behavior yet:
 
-- `CHECK` and foreign-key declarations are rejected at DDL with SQLSTATE `0A000`; they are never accepted and discarded. `UNIQUE` constraints and unique indexes are enforced on the core write paths, but only through validating scans — this is not a durable uniqueness claim and does not imply full SQLite or PostgreSQL concurrency semantics. `UNIQUE` is materialized only when a table is created; tables created before this support are not retroactively enforced after an upgrade.
+- `CHECK` and foreign-key declarations are rejected at DDL with SQLSTATE `0A000`; they are never accepted and discarded. `UNIQUE` constraints and unique indexes are enforced on the core write paths under the table publication gate. Current builds retain rebuildable column-ownership caches; expression constraints still scan. Definitions and row data persist, not native durable index pages. This does not imply full SQLite or PostgreSQL concurrency semantics. `UNIQUE` is materialized only when a table is created; tables created before this support are not retroactively enforced after an upgrade.
 - Composite primary keys are rejected at DDL with SQLSTATE `0A000`; they are never silently reduced to the first column.
 - Non-constant column defaults (`DEFAULT CURRENT_TIMESTAMP`, function calls) are rejected at DDL with `0A000`; there is no per-INSERT default evaluation.
 - Array parameters and `ANY`/`ALL` predicates are rejected with `0A000`; rewrite them as `IN (...)` with individual parameters.
@@ -131,7 +131,7 @@ Unsupported syntax normally returns an error. The items above are called out sep
 | Composite primary keys | Rejected with `0A000` | Supported | Supported |
 | `NOT NULL` | Supported on final insert/update rows; `23502` on current builds | Supported | Supported |
 | `UNIQUE` constraints | Partial; enforced on core write paths via validating scans | Supported | Supported |
-| Unique indexes | Partial; enforced on core write paths via validating scans | Supported | Supported |
+| Unique indexes | Enforced on core write paths; derived ownership cache for columns, scans for expressions | Supported | Supported |
 | `CHECK` constraints | Rejected with `0A000` | Supported | Supported |
 | Foreign keys | Rejected with `0A000`; cascades are not implemented | Supported when enabled | Supported |
 | Literal defaults | Supported (constant values) | Supported | Supported |
