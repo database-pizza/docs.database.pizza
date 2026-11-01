@@ -23,10 +23,11 @@ PizzaSQL implements a **partial** PostgreSQL wire protocol (v3.0) so that *some*
 ### Query protocol
 
 - **Simple query** (`Q`): a single statement or a semicolon-separated batch. The batch is parsed fully before execution.
-- **Extended query** (`Parse`/`Bind`/`Describe`/`Execute`/`Sync`/`Close`): prepared statements and portals are supported for the driver conversation, but there is no server-side statement cache or plan — parameters are bound by rewriting the query text client-side in the engine (`$1`, `$2`, … are substituted as literals before parsing).
-- `Bind` supports text-format parameters for all types and binary-format parameters for booleans (OID 16), `int2` (21), `int4` (23), and `int8` (20); other binary types are rejected.
+- **Extended query** (`Parse`/`Bind`/`Describe`/`Execute`/`Sync`/`Close`): prepared statements and portals are supported for the driver conversation, but there is no server-side statement cache or plan — parameters are bound by rewriting the query text client-side in the engine (`$1`, `$2`, … are substituted as literals before parsing). `Parse` accepts exactly one command. Binding recognizes placeholders only outside quoted strings/identifiers and line/block comments.
+- `Bind` supports text-format parameters for all types and binary-format parameters for booleans (OID 16), `int2` (21), `int4` (23), and `int8` (20); other binary types fail with `0A000`. Result formats must be all-text (or the empty/default list): binary and per-column result format requests are rejected rather than silently ignored.
 - Parameter OIDs are mapped to a small set: `0` (infer), `16` boolean, `20`/`21`/`23` integers, `26`/`700`/`701`/`1700` numerics; anything else is treated as text.
-- Portal execution is single-use (a portal may be executed once, then must be re-bound).
+- Portal execution is single-use (a portal may be executed once, then must be re-bound). Execute must request the unbounded row limit (`maxRows = 0`); bounded/resumable portals are not implemented and fail with `0A000` before any side effect.
+- `Describe` is not implemented. It fails with `0A000` instead of claiming `NoData` or executing SQL to discover metadata. Clients that require Describe must use a simple query or skip it.
 
 ### Command completion and errors
 
