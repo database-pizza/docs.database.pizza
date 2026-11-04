@@ -3,7 +3,7 @@ title: Quickstart
 description: Create or choose a hosted database, configure a private key, and verify a first write and read over MCP or HTTPS.
 ---
 
-PizzaSQL is database.pizza's own SQL engine, with a SQLite-inspired dialect. It is not a drop-in SQLite or PostgreSQL replacement. Start with a small, non-critical workload and review [Compatibility](/sql-reference/compatibility/) before generating a schema.
+PizzaSQL is database.pizza's own SQL engine, with a SQLite-inspired dialect. It is not a drop-in SQLite or PostgreSQL replacement, but it supports a good chunk of SQLite; for many small projects, switching the connection is the main change. Start with a small, non-critical workload and review [Compatibility](/sql-reference/compatibility/) before generating a schema.
 
 ## 1. Sign up and copy the agent instructions
 
@@ -12,10 +12,10 @@ Google or GitHub. Your default workspace is created automatically; no database
 or API key is created just by signing in.
 
 The workspace empty state says *Paste these instructions into your current
-project, or use them to start a new one.* Copy the instructions and give them to
-your coding agent. The agent installs its MCP connection, then opens a browser
-approval page where you choose the workspace and approve access. No API key
-goes into the prompt.
+project, or use them to start a new one.* Copying creates a **6-hour setup-only
+MCP key** and places it in a short prompt for your coding agent. The prompt
+contains the MCP URL, the Bearer header, and the first steps. Treat that prompt
+as a secret; manage keys under **Workspace → MCP**.
 
 You can also create databases manually in the console. Every programmatic
 connection for app code belongs to one organization and one database; the
@@ -23,9 +23,8 @@ examples below use the fictional path `acme/production`.
 
 ## 2. For application code, get a separate private key
 
-The workspace agent connection expires and is for agent operations. App code
-should use a separate, database-scoped key. The agent can create one through
-the installed helper, or you can create one in the console under **API keys**.
+MCP keys are for agent operations and expire. App code should use a separate,
+database-scoped key created under **API keys**.
 
 The full key is shown **once**. Save it in a local secret manager or environment;
 never paste it into an agent conversation, commit it, or put it in public browser
@@ -46,9 +45,9 @@ displayed again.
 
 ### With an agent
 
-Paste the workspace instructions into your coding agent. The agent installs and
-configures MCP, and you approve its workspace access in the browser. See
-[MCP for agents](/clients/mcp/) for the helper, supported clients, and limits.
+Paste the workspace instructions into your coding agent. The prompt includes the
+MCP URL and a 6-hour setup key; the agent configures its own client. See
+[MCP for agents](/clients/mcp/) for key management and limits.
 
 ### With a script
 

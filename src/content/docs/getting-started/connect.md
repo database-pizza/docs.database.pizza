@@ -3,12 +3,11 @@ title: Connect
 description: Connect agents with MCP and apps or scripts with HTTPS; use the partial PostgreSQL wire interface only over a protected connection.
 ---
 
-Open [app.database.pizza/start](https://app.database.pizza/start) to sign up. Your default workspace is created automatically. Copy the agent instructions from the workspace empty state; your agent installs and configures MCP, and you approve its workspace access in a browser. No API key goes into the prompt.
+Open [app.database.pizza/start](https://app.database.pizza/start) to sign up. Your default workspace is created automatically. Copy the agent instructions from the workspace; copying creates a 6-hour setup-only MCP key and puts it in the prompt. Manage or revoke MCP keys under **Workspace → MCP**.
 
 | Surface | Endpoint | Authentication |
 | --- | --- | --- |
-| MCP Streamable HTTP | `https://db.database.pizza/mcp` | Browser-approved workspace agent token as Bearer token |
-| MCP local bridge | Installed helper (`--stdio`) | Private local credential file, `0600` |
+| MCP Streamable HTTP | `https://db.database.pizza/mcp` | Workspace `AGENT` key as Bearer token |
 | HTTPS query API | `https://db.database.pizza/acme/production/query` | Database-scoped `DB_ACCESS` key as Bearer token |
 | Partial PostgreSQL wire | `db.database.pizza:5432` | Database key as password; TLS depends on deployment |
 
@@ -32,11 +31,10 @@ Use the [HTTP query API](/clients/http-api/) for response details, batching, par
 
 ## MCP for coding agents
 
-Copy the instructions from the workspace and give them to your agent. The agent
-runs the dependency-free helper, which approves a workspace connection through
-your browser and configures a secret-free stdio bridge for Claude Code, Codex,
-Cursor, VS Code, or another client. Reopen the client session when new MCP tools
-should appear. See [MCP for agents](/clients/mcp/).
+Copy the instructions from the workspace and give them to your agent. The prompt
+contains the MCP URL and a 6-hour setup key, and the agent configures its own
+client. Reopen the client session if new MCP tools are not visible. See
+[MCP for agents](/clients/mcp/).
 
 ## PostgreSQL wire and TLS
 
