@@ -3,15 +3,19 @@ title: Connect
 description: Connect agents with MCP and apps or scripts with HTTPS; use the partial PostgreSQL wire interface only over a protected connection.
 ---
 
-Open [the agent handoff](https://app.database.pizza/start) to create or choose a database and configure a private key. Existing users can also open **Connect agent** in a database. [Preview the UI](https://app.database.pizza/start?preview=1) without creating resources.
+Open [app.database.pizza/start](https://app.database.pizza/start) to sign up. Your default workspace is created automatically. Copy the agent instructions from the workspace empty state; your agent installs and configures MCP, and you approve its workspace access in a browser. No API key goes into the prompt.
 
 | Surface | Endpoint | Authentication |
 | --- | --- | --- |
-| MCP Streamable HTTP | `https://db.database.pizza/mcp` | Database-scoped `DB_ACCESS` key as Bearer token |
-| HTTPS query API | `https://db.database.pizza/acme/production/query` | API key as Bearer token |
-| Partial PostgreSQL wire | `db.database.pizza:5432` | API key as password; TLS depends on deployment |
+| MCP Streamable HTTP | `https://db.database.pizza/mcp` | Browser-approved workspace agent token as Bearer token |
+| MCP local bridge | Installed helper (`--stdio`) | Private local credential file, `0600` |
+| HTTPS query API | `https://db.database.pizza/acme/production/query` | Database-scoped `DB_ACCESS` key as Bearer token |
+| Partial PostgreSQL wire | `db.database.pizza:5432` | Database key as password; TLS depends on deployment |
 
-`acme/production` is a fictional organization/database path. MCP derives the path from the key, so it does not need the slugs in its URL. MCP keys are organization-owned and bound to a single database, never account-wide. See [API keys & permissions](/clients/api-keys/).
+`acme/production` is a fictional organization/database path. Workspace agent
+connections select a database per call and cannot reach other workspaces. App
+credentials use separate database-scoped keys. See
+[API keys & permissions](/clients/api-keys/).
 
 ## HTTPS for scripts and application backends
 
@@ -28,7 +32,11 @@ Use the [HTTP query API](/clients/http-api/) for response details, batching, par
 
 ## MCP for coding agents
 
-Choose Claude Code, Cursor, or VS Code in the console handoff, configure the client privately, then paste the credential-free first prompt. Clients must support Streamable HTTP and bearer headers. See [MCP for agents](/clients/mcp/); the formats differ between clients.
+Copy the instructions from the workspace and give them to your agent. The agent
+runs the dependency-free helper, which approves a workspace connection through
+your browser and configures a secret-free stdio bridge for Claude Code, Codex,
+Cursor, VS Code, or another client. Reopen the client session when new MCP tools
+should appear. See [MCP for agents](/clients/mcp/).
 
 ## PostgreSQL wire and TLS
 

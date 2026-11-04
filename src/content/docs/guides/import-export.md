@@ -9,21 +9,46 @@ database.pizza supports three ways to move data around:
 - **CSV** — a single table's rows in comma-separated form.
 - **SQLite files** — native `.db` / `.sqlite` / `.sqlite3` files.
 
-Import and export happen through the dashboard (database **Settings → SQLite import and export**). There's no API-key-authenticated import/export endpoint — you either use the dashboard, or script your own using the [query API](/clients/http-api/) and [PostgreSQL protocol](/clients/postgresql/).
+Import and export happen through the dashboard (database **Settings → SQLite import and export**) or, for checksummed logical backups, through an approved coding agent's MCP connection. Logical backups are **SQL exports** with a checksum, not physical snapshots or point-in-time backups.
+
+For app-level access, script imports and exports through your own server using the [query API](/clients/http-api/) and [PostgreSQL protocol](/clients/postgresql/). The dashboard-session import/export endpoints do not accept application API keys.
 
 ## Export a database
 
 From the database's **Settings** page, choose **Export SQLite**. You'll download a SQL dump that includes both schema and data, in a form you can replay into any SQLite-compatible tool.
 
-The dump is ordinary SQL. You can re-run it against a fresh database with `psql`:
+The dump is ordinary SQL. Replay it into a fresh database over a protected connection:
 
 ```bash
 PGPASSWORD='pz_live_REPLACE_ME' psql \
-  "postgresql://u@db.database.pizza:5432/acme%2Fproduction?sslmode=disable" \
+  "postgresql://u@db.database.pizza:5432/acme%2Fproduction?sslmode=require" \
   -f production.sql
 ```
 
-Or replay it through the HTTP API statement by statement.
+This requires a deployment that offers PostgreSQL TLS. The public endpoint
+declined TLS on 2026-11-04; use HTTPS or a logical restore into a new database
+while that is the case. Do not send a key over public plaintext. Replaying a
+dump over HTTPS also requires splitting it into individual statements.
+
+## Logical backups and restore
+
+An approved agent creates a checksummed logical SQL export with `create_backup`.
+These exports are bounded:
+
+- **16 MiB** per export and **10 saved backups per database** (**128 MiB per
+  workspace**).
+- Stop writes and schema changes before creating one; export is not
+  transactionally consistent.
+- Ordinary indexes, unique indexes, defaults, and `AUTOINCREMENT` are included
+  when the catalog can represent them safely. Index-level `ON CONFLICT` policies
+  are not reconstructed; reapply them after restore. Unsupported schema
+  features fail closed instead of producing a silently incomplete file.
+
+`restore_backup` replays into a **new database**, never over the source. It
+requires a free quota slot and a fresh name. A failed replay is reported as
+`partial`; inspect or discard that new database rather than assuming success.
+Keep independent exports of data you cannot afford to lose — these are not
+physical snapshots, point-in-time recovery, or retained-history archives.
 
 ## Import a database
 

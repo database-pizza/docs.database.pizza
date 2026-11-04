@@ -14,7 +14,7 @@ Every database runs on [PizzaSQL](/internals/architecture/), a SQL engine built 
 
 ## Three ways in
 
-- **New or returning?** Open [the agent handoff](https://app.database.pizza/start), then follow the [Quickstart](/getting-started/quickstart/). Existing users choose a database; the [preview](https://app.database.pizza/start?preview=1) creates nothing.
+- **New or returning?** Sign up at [app.database.pizza/start](https://app.database.pizza/start), then copy the agent instructions from your workspace. Your agent configures MCP; you approve access in the browser. Follow the [Quickstart](/getting-started/quickstart/) for a first query.
 - **Writing SQL?** Start with [SQL at a glance](/sql-reference/overview/) and keep the [compatibility notes](/sql-reference/compatibility/) close before generating production queries.
 - **Curious how it works?** The [Engine Internals](/internals/architecture/) section walks through the PizzaSQL architecture, query lifecycle, and storage model.
 
@@ -24,13 +24,14 @@ Every database gives you a managed access surface plus a dashboard:
 
 | Surface | Where | Best for |
 | --- | --- | --- |
-| MCP | `https://db.database.pizza/mcp` | Coding-agent tools with a database-scoped key |
+| MCP | `https://db.database.pizza/mcp` | Coding-agent tools with a browser-approved workspace connection |
+| MCP local bridge | Installed helper | Clients without remote HTTP MCP support |
 | PostgreSQL wire protocol (partial) | `db.database.pizza:5432` | `psql` and tested Postgres drivers |
 | HTTP query API | `https://db.database.pizza/<org>/<db>/query` | Any language, serverless, and edge workloads |
 | Auto-generated REST API (preview) | `https://db.database.pizza/<org>/<db>/api/<table>` | Single-table CRUD without writing SQL |
 | Dashboard | `app.database.pizza` | Schema browsing, history, query editor, API keys, metrics |
 
-All programmatic access is authenticated with **API keys**. Keys carry granular scopes — `read`, `write`, `alter_table`, `drop_table` — so you can issue a read-only key to a reporting job and a write key to an ingestion service. See [API keys & permissions](/clients/api-keys/).
+All programmatic access is authenticated with **API keys**. Application keys carry granular scopes — `read`, `write`, `alter_table`, `drop_table` — so you can issue a read-only key to a reporting job and a write key to an ingestion service. Browser-approved agent connections are workspace-scoped and expire after 7 days. See [API keys & permissions](/clients/api-keys/).
 
 > **Public-network connections:** prefer HTTPS or MCP. Source supports PostgreSQL proxy TLS, but the public endpoint declined TLS in a credential-free negotiation check on 2026-11-04. Do not send a key over public plaintext. A TLS-enabled deployment can use `sslmode=require` or `verify-full`; the engine hop stays plaintext loopback. The wire interface is partial, not general PostgreSQL/ORM compatibility. Read [Connect](/getting-started/connect/).
 
@@ -56,7 +57,7 @@ Throughout these docs we use a fictional organization `acme` and database `produ
 
 ## Getting started
 
-- [Quickstart](/getting-started/quickstart/) — create an org, database, and key; run your first query.
+- [Quickstart](/getting-started/quickstart/) — sign up, connect an agent, and run your first query.
 - [Connect](/getting-started/connect/) — connection strings and parameters for every client.
 - [Your first schema](/getting-started/first-schema/) — tables, inserts, indexes, and queries.
 
