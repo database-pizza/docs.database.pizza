@@ -106,6 +106,14 @@ You don't need a dedicated export feature for simple cases. A dump is just schem
 
 This gives you full control over the output and works from any environment.
 
+## Backups during the beta
+
+database.pizza takes a nightly off-host backup of every workspace and keeps roughly the 14 most recent runs. A backup is a copy of the storage journal taken while the database is running, so it reflects a point during the copy rather than a transaction boundary: the most recent committed write can be missing, and a torn trailing record is discarded when the file is opened.
+
+Backups are **best effort** during the beta. They are not a service-level guarantee, and [history and undo](/history/undo-recovery/) are repair tools rather than a backup system. Export your data regularly — weekly at minimum, and always before a schema migration — and keep an independent copy.
+
+To restore, contact <webmaster@database.pizza> or use the support form with the workspace name and the approximate date. Restore is operator-run during the beta: we bring the backup up in a scratch location first so live data is never overwritten, report what recovered, and only then move data. A workspace restore does not automatically rebuild every index or constraint; verify them after the restore.
+
 ## Related
 
 - [Undo & recovery](/history/undo-recovery/) — the scoped-undo safety net that complements your exports.

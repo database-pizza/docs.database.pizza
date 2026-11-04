@@ -62,7 +62,9 @@ Imports of existing SQLite databases skip several constructs: views, triggers, p
 
 ## TLS and connectivity
 
-**Capability is not deployment state.** On 2026-11-04 a credential-free SSLRequest to the public PostgreSQL endpoint returned `N` (TLS not offered). Use HTTPS/MCP over public networks until PostgreSQL TLS is installed. Do not fall back to public plaintext; `sslmode=disable` is only for a deliberately trusted local/tunneled hop. No keys or SQL were sent by this check.
+**Workspaces created after the TLS cutover require TLS.** Connecting to one with `sslmode=disable` is rejected with SQLSTATE `08P01` before the API key is sent. Workspaces created earlier keep accepting plaintext during the transition, and the console shows a banner prompting you to switch; once those are migrated, the whole proxy moves to `required`.
+
+TLS is still deployment state: a proxy without a certificate cannot offer it, and enforcement stays dormant until one is installed. If `sslmode=require` fails with an SSL negotiation error, that deployment has no certificate yet. Do not fall back to public plaintext; `sslmode=disable` is only for a deliberately trusted local or tunneled hop.
 
 The managed PostgreSQL proxy supports TLS termination with a deployment setting (`PGPROXY_TLS_MODE`):
 
@@ -70,7 +72,7 @@ The managed PostgreSQL proxy supports TLS termination with a deployment setting 
 - `required` rejects plaintext startup with `08P01`. Clients pinned to `sslmode=disable` or `ssl: false` must be updated first.
 - `off` disables TLS even if certificate paths are configured.
 
-If SSL negotiation is declined, that deployment has no certificate installed and only `sslmode=disable` works; use it only over a trusted hop. The HTTP surface is HTTPS-only. TLS ends at the proxy: the loopback hop to PizzaSQL is plaintext. See the security notes in [API keys & permissions](/clients/api-keys/) and the client impact matrix in [PostgreSQL clients](/clients/postgresql/#discovery-and-quota-errors).
+If SSL negotiation is declined, that deployment has no certificate installed yet; do not fall back to public plaintext. The HTTP surface is HTTPS-only. TLS ends at the proxy: the loopback hop to PizzaSQL is plaintext. See the security notes in [API keys & permissions](/clients/api-keys/) and the client impact matrix in [PostgreSQL clients](/clients/postgresql/#discovery-and-quota-errors).
 
 ## Related
 

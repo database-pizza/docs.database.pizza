@@ -98,7 +98,8 @@ This is by design — the HTTP API is stateless. Use the [PostgreSQL protocol](/
 
 ## Connection troubleshooting
 
-- **SSL negotiation fails** — the deployment declined SSL negotiation, so it has no proxy certificate installed. Connect with `sslmode=disable` over a trusted hop, or ask the operator to enable TLS on the proxy.
+- **`08P01` TLS is required for this database** — the workspace was created after the TLS cutover and the connection used `sslmode=disable`. Reconnect with `sslmode=require` or `verify-full`; the key was not sent.
+- **SSL negotiation fails** — the deployment declined SSL negotiation, so it has no proxy certificate installed yet. Do not fall back to public plaintext; use HTTPS/MCP or a trusted tunnel, and ask the operator to install the certificate.
 - **`database must be "org/db"`** — the database name in your connection string is missing the `/` separator.
 - **URI parse errors** — remember to percent-encode the database name's slash: `acme%2Fproduction`.
 
