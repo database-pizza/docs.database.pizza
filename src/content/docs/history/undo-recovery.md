@@ -22,8 +22,8 @@ Because the output is plain SQL, you can copy it, edit it, run it against a diff
 Undo is **scoped**, not all-or-nothing:
 
 - **Record-level undo** restores a single row to a previous value — for example, the value it held before a bad `UPDATE`, or the row itself after a mistaken `DELETE`.
-- **Table-level undo** rebuilds a table from its state at an earlier available position.
-- **Schema-level recovery** can restore a dropped table's definition and rows, or undo a column change, by replaying the schema and data records that existed at that point.
+- **Table-level restore** uses **Data → History** to select an earlier available journal position, then **Restore table** generates a table definition and row inserts. Applying it drops and rebuilds the selected table. Review carefully and export current data first.
+- **Schema and index inspection** shows structural state at a selected position, including recorded index-maintenance writes. This is not an automatic complete structural restore. The current table SQL export preserves basic column types, nullability, and primary keys, but does **not** recreate every index definition, unique constraint, or default. Recreate and verify required indexes and constraints explicitly; do not assume a historical table restore preserves them.
 
 You decide the blast radius. That is the safety-first property: correcting one row does not require rewinding unrelated live changes.
 
@@ -32,10 +32,14 @@ You decide the blast radius. That is the safety-first property: correcting one r
 It is important to be precise about what this feature is and is not. Undo is a **surgical, reviewed convenience**, not a backup system.
 
 - **Not atomic.** Restored statements run one at a time over the normal query surface. There is no transaction wrapping the whole restore, so a failure partway through can leave a partially restored state. Review the generated SQL, and for anything structural, consider running it in stages.
-- **Not backup or point-in-time recovery (PITR).** Undo reconstructs individual values from the write-ahead journal. It is not a full snapshot restore, and it is not a replacement for regular exports. Keep your own backups for disaster recovery — see [Import & export](/guides/import-export/).
+- **Point selection is not whole-database PITR.** You can select a point in the available history and restore a record or table, but this is SQL reconstruction, not an atomic, transaction-consistent whole-database snapshot restore. It is not a replacement for regular exports. Keep your own backups for disaster recovery — see [Import & export](/guides/import-export/).
 - **Not transactional rollback.** Unlike `ROLLBACK`, which reverts a still-open transaction in memory, undo generates new writes to bring data back to an earlier shape. Those writes themselves are new history.
 - **Bounded by journal retention.** If the journal has aged out the records you need, the earlier state cannot be reconstructed from history. Recoverable history is a moving window, not an infinite archive.
 - **No actor attribution.** Undo restores *values*, not accountability. It does not identify who made the original change.
+
+## Source boundary
+
+The console's journal worker reconstructs historical state and exports table SQL. The **Data** view applies table restore with a `DROP TABLE` followed by separate statements; the record-history views generate focused row corrections. No automatic index-definition replay or atomic whole-database cutover is implied. Index maintenance is visible history, not a promise that a table restore replays physical index state.
 
 ## Recovery for AI-built apps
 

@@ -1,85 +1,77 @@
 ---
 title: Connect
-description: Connection strings and parameters for the PostgreSQL wire protocol and the HTTP query API.
+description: Connect agents with MCP and apps or scripts with HTTPS; use the partial PostgreSQL wire interface only over a protected connection.
 ---
 
-Everything you connect to lives at the host `db.database.pizza`. Your organization and database slugs form the routing path: for org `acme` and database `production`, that path is `acme/production`.
-
-There are two connection surfaces, and they share the same API key.
+Open [the agent handoff](https://app.database.pizza/start) to create or choose a database and configure a private key. Existing users can also open **Connect agent** in a database. [Preview the UI](https://app.database.pizza/start?preview=1) without creating resources.
 
 | Surface | Endpoint | Authentication |
 | --- | --- | --- |
-| PostgreSQL wire protocol | `db.database.pizza:5432` | API key as password |
-| HTTP query API | `https://db.database.pizza/acme/production/query` | API key as `Authorization: Bearer` |
+| MCP Streamable HTTP | `https://db.database.pizza/mcp` | Database-scoped `DB_ACCESS` key as Bearer token |
+| HTTPS query API | `https://db.database.pizza/acme/production/query` | API key as Bearer token |
+| Partial PostgreSQL wire | `db.database.pizza:5432` | API key as password; TLS depends on deployment |
 
-## PostgreSQL wire protocol
+`acme/production` is a fictional organization/database path. MCP derives the path from the key, so it does not need the slugs in its URL. MCP keys are organization-owned and bound to a single database, never account-wide. See [API keys & permissions](/clients/api-keys/).
 
-Connect to `db.database.pizza` on port `5432` the way you would a PostgreSQL server. Three things are different from a stock Postgres setup:
+## HTTPS for scripts and application backends
 
-1. **The database name is `acme/production`** — organization and database joined by a slash. It's a single name, not two path segments.
-2. **The password is your API key.** The user field is ignored; you can use any value (the examples use `u`).
-3. **TLS is deployment-dependent.** The managed proxy supports TLS termination; use `sslmode=require` when it is enabled. If SSL negotiation is answered with `N`, the deployment has no certificate installed: use `sslmode=disable` over a trusted hop.
+With `PZ_API_KEY` set privately in your local environment:
 
-### Connection string
+```bash
+curl --fail-with-body https://db.database.pizza/acme/production/query \
+  -H "Authorization: Bearer $PZ_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"sql":"SELECT 1 AS ready"}'
+```
+
+Use the [HTTP query API](/clients/http-api/) for response details, batching, parameters, and errors. Never ship the key to public browser code; call from your own backend.
+
+## MCP for coding agents
+
+Choose Claude Code, Cursor, or VS Code in the console handoff, configure the client privately, then paste the credential-free first prompt. Clients must support Streamable HTTP and bearer headers. See [MCP for agents](/clients/mcp/); the formats differ between clients.
+
+## PostgreSQL wire and TLS
+
+PizzaSQL implements a **partial** PostgreSQL wire protocol. The SQL is SQLite-inspired; test your exact driver and workload. Transactions are available through the wire interface, not over HTTPS or MCP.
+
+**Source capability:** the managed proxy implements TLS 1.2+ termination, configurable with `PGPROXY_TLS_CERT`, `PGPROXY_TLS_KEY`, and `PGPROXY_TLS_MODE=off|optional|required`. With a certificate, `optional` offers TLS while retaining plaintext compatibility; `required` rejects plaintext startup. TLS ends at the proxy; the engine hop is plaintext loopback.
+
+**Public deployment observation:** on 2026-11-04, a credential-free PostgreSQL `SSLRequest` to `db.database.pizza:5432` returned `N`, meaning TLS was not offered. This check sent no login, key, SQL, or database name. It does not imply that the source lacks TLS support, and configuration can change.
+
+**Use HTTPS or MCP over public networks until PostgreSQL TLS is installed. Do not fall back to public plaintext to make a connection work.** `sslmode=disable` is only appropriate on a deliberately trusted local/tunneled hop. No certificate installation or TLS enforcement rollout is implied by these docs.
+
+For a **TLS-enabled deployment**, a connection URI is:
 
 ```text
-postgresql://u:pz_live_REPLACE_ME@db.database.pizza:5432/acme%2Fproduction?sslmode=disable
+postgresql://u:pz_live_REPLACE_ME@db.database.pizza:5432/acme%2Fproduction?sslmode=require
 ```
 
-The slash in the database name must be percent-encoded as `%2F` when a client parses the URI (libpq, `pg`, SQLAlchemy, JDBC, and most others do). If your client takes discrete fields instead of a URI — many GUIs do — enter `acme/production` literally in the database field, no encoding.
-
-### With `psql`
+Or, with the key kept out of the URI:
 
 ```bash
-PGPASSWORD='pz_live_REPLACE_ME' psql \
-  "postgresql://u@db.database.pizza:5432/acme%2Fproduction?sslmode=disable"
+PGPASSWORD="$PZ_API_KEY" psql \
+  "postgresql://u@db.database.pizza:5432/acme%2Fproduction?sslmode=require" \
+  -c 'SELECT 1 AS ready'
 ```
 
-`psql` also accepts the parts as flags:
+This deliberately fails if the server declines TLS. For certificate and hostname validation, prefer `sslmode=verify-full` with a trusted hostname-matching certificate. Do not disable validation as a generic workaround.
 
-```bash
-PGPASSWORD='pz_live_REPLACE_ME' psql \
-  -h db.database.pizza -p 5432 -U u -d acme/production
-```
+The database name is `acme/production`, including the slash. Percent-encode it as `acme%2Fproduction` in a URI; use the literal string in discrete driver/GUI fields. The user field is ignored (`u` is conventional); the password is the API key.
 
-## HTTP query API
+## Choosing a surface
 
-Send a JSON body to the query endpoint with the key in a Bearer header:
+- **MCP:** agent schema discovery and one-statement SQL tools.
+- **HTTPS:** server-side scripts, small app backends, serverless functions. No connection pool needed.
+- **PostgreSQL wire:** tested drivers and optimistic DML transactions, on a protected connection. It is not PostgreSQL semantics or universal ORM compatibility.
 
-```bash
-curl -s https://db.database.pizza/acme/production/query \
-  -H "Authorization: Bearer pz_live_REPLACE_ME" \
-  -H "Content-Type: application/json" \
-  -d '{"sql": "SELECT version()"}'
-```
-
-The HTTP surface also exposes a batch endpoint, schema introspection, and a health check. See [HTTP query API](/clients/http-api/) for the full reference.
-
-## Connection parameters
-
-| Parameter | PostgreSQL | HTTP |
-| --- | --- | --- |
-| Host | `db.database.pizza` | `https://db.database.pizza` |
-| Port | `5432` | `443` |
-| Database | `acme/production` | path segment `/acme/production` |
-| User | ignored (use `u`) | — |
-| Password / token | API key | `Authorization: Bearer <key>` |
-| SSL | `sslmode=require` when enabled; `disable` only if negotiation is declined | HTTPS only |
-
-## Which should I use?
-
-- **PostgreSQL wire protocol** is useful when you have a tested Postgres driver or `psql`-style workflow. It is the only surface that supports transactions (optimistic DML transactions — see [Transactions](/engine/transactions/)). It is **not** a full PostgreSQL surface: the SQL dialect is SQLite-style, and compatibility is partial.
-- **HTTP query API** is best for serverless functions, edge workloads, and environments where a long-lived database connection isn't practical. Transactions are **not** supported over HTTP — use the Postgres protocol when you need them. Do not expose a database API key in browser code.
-
-> **TLS warning.** TLS terminates at the managed proxy when the deployment has a certificate; `sslmode=require` then protects the client-to-proxy hop. The proxy-to-engine loopback hop remains plaintext, and a deployment without a certificate declines SSL entirely. Prefer the HTTPS-only HTTP API when you need end-to-end transport security. See [API keys & permissions](/clients/api-keys/).
-
-Both surfaces enforce the same API key scopes. See [API keys & permissions](/clients/api-keys/) and [PostgreSQL clients](/clients/postgresql/) for idiomatic client examples.
+All three enforce key scopes. No transactions over MCP or HTTPS. Read [Compatibility](/sql-reference/compatibility/) before generating SQL and [PostgreSQL clients](/clients/postgresql/) before relying on a driver.
 
 ## Troubleshooting
 
-- **`invalid_password` / "authentication failed"** — the key is wrong, revoked, or lacks `DB_ACCESS` permission. Check the key and its scopes.
-- **`invalid_catalog_name` / "database must be org/db"** — the database name doesn't contain the `/`. Use `acme/production`.
-- **SSL negotiation fails** — this deployment declined SSL negotiation, so it has no proxy certificate configured. Use `sslmode=disable` over a trusted hop, or ask the operator to enable TLS.
-- **`invalid api key`** — the key isn't a valid live key, or you pasted it with whitespace.
+- **Invalid/revoked API key:** configure a valid local key or create a replacement; keys cannot be revealed again.
+- **Permission denied:** check the database binding and scopes. Read-only keys cannot create tables.
+- **Database name must be org/db:** include the slash and encode it in a URI.
+- **TLS required but not offered:** use HTTPS/MCP or ask the operator to install PostgreSQL TLS. Do not send credentials over public plaintext.
+- **Certificate verification failure:** verify hostname, trust chain, and expiry; do not simply turn verification off.
 
-More error cases are covered in [Errors & troubleshooting](/guides/errors/).
+See [Errors & troubleshooting](/guides/errors/) for other failure responses.

@@ -38,6 +38,7 @@ If you need more, the limits are configurable per organization — reach out thr
 
 ## API and endpoint limits
 
+- **MCP** requires a database-scoped `DB_ACCESS` key. It accepts one SQL statement per `run_sql` call, rejects transaction statements, and caps result rows at 200. See [MCP for agents](/clients/mcp/).
 - **REST list results** default to `100` rows and cap at `1000` per request (`limit` parameter).
 - **Import uploads** are size-limited: SQL and CSV multipart uploads cap at 32 MB; SQLite imports cap at 128 MB.
 - **One statement per `/query` request.** Use `/execute` to batch several, or the PostgreSQL protocol for scripts and transactions.
@@ -60,6 +61,8 @@ The complete, authoritative list is on the [Compatibility](/sql-reference/compat
 Imports of existing SQLite databases skip several constructs: views, triggers, pragmas, expression indexes, and `FOREIGN KEY` / `CHECK` constraints. See [Import & export](/guides/import-export/).
 
 ## TLS and connectivity
+
+**Capability is not deployment state.** On 2026-11-04 a credential-free SSLRequest to the public PostgreSQL endpoint returned `N` (TLS not offered). Use HTTPS/MCP over public networks until PostgreSQL TLS is installed. Do not fall back to public plaintext; `sslmode=disable` is only for a deliberately trusted local/tunneled hop. No keys or SQL were sent by this check.
 
 The managed PostgreSQL proxy supports TLS termination with a deployment setting (`PGPROXY_TLS_MODE`):
 

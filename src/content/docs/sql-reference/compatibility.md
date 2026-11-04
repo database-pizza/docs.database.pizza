@@ -130,7 +130,7 @@ Unsupported syntax normally returns an error. The items above are called out sep
 | Single-column primary keys | Supported | Supported | Supported |
 | Composite primary keys | Rejected with `0A000` | Supported | Supported |
 | `NOT NULL` | Supported on final insert/update rows; `23502` on current builds | Supported | Supported |
-| `UNIQUE` constraints | Partial; enforced on core write paths via validating scans | Supported | Supported |
+| `UNIQUE` constraints | Enforced on core write paths; cached column ownership / expression validation, with legacy-table and transaction caveats | Supported | Supported |
 | Unique indexes | Enforced on core write paths; derived ownership cache for columns, scans for expressions | Supported | Supported |
 | `CHECK` constraints | Rejected with `0A000` | Supported | Supported |
 | Foreign keys | Rejected with `0A000`; cascades are not implemented | Supported when enabled | Supported |
@@ -250,7 +250,7 @@ Compatibility claims should therefore be tied to explicit automated tests, not o
 
 ## Experimental backend evidence
 
-Both of these are **local source-build exercises, not deployed or production configurations**, and transport TLS remains unavailable. They are the concrete integration targets for the SQLite dialect and PostgreSQL wire protocol.
+The integration suites below are **local source-build verification**, not evidence that every hosted tenant runs that build. The workspace also dogfoods adapted Gogs and Vikunja forks on its managed stack; those are operator-owned deployments, not proof of unmodified upstream compatibility. PostgreSQL proxy TLS is supported in source, but the public endpoint returned `N` to a credential-free SSLRequest on 2026-11-04. Prefer HTTPS/MCP until public PostgreSQL TLS is installed; see [Connect](/getting-started/connect/).
 
 ### Gogs
 

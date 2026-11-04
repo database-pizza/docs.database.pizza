@@ -1,70 +1,46 @@
 ---
 title: PostgreSQL clients
-description: Connect to database.pizza with psql and tested PostgreSQL drivers — with the compatibility and TLS caveats you need to know.
+description: Configure tested PostgreSQL drivers for PizzaSQL's partial wire interface, with TLS and SQL compatibility boundaries.
 ---
 
-PizzaSQL implements a **partial** PostgreSQL wire protocol, which lets *some* PostgreSQL clients connect — but not all, and not with full PostgreSQL behavior. Treat the protocol as a transport, not a promise of PostgreSQL semantics. The only clients worth relying on are the ones you have actually tested against your workload.
+PizzaSQL speaks a **partial PostgreSQL wire protocol**, not PostgreSQL SQL semantics. Test the exact driver, version, introspection, and workload you intend to use. Use SQLite-inspired SQL and the [Compatibility](/sql-reference/compatibility/) guide.
 
-Before you connect anything, two facts matter:
+## TLS: capability versus deployment
 
-- **The SQL is SQLite-style, not PostgreSQL.** The dialect differences in [Compatibility](/sql-reference/compatibility/) apply to every client.
-- **TLS terminates at the managed proxy when the deployment enables it.** With a certificate installed, the proxy offers TLS by default (mode `optional`): `sslmode=prefer`/`require` clients upgrade automatically and existing `sslmode=disable` clients keep working. The operator can set `PGPROXY_TLS_MODE=required` to reject plaintext with `08P01`; clients pinned to `sslmode=disable` (including `ssl: false` in node-postgres) then fail until they enable TLS. If SSL negotiation is declined, the deployment has not installed a certificate yet: use `sslmode=disable` only over a trusted hop. TLS never covers the proxy-to-engine loopback hop.
+The managed proxy implements TLS in source. `PGPROXY_TLS_MODE=optional` offers TLS when a certificate is installed; `required` rejects plaintext startup with `08P01`; `off` disables TLS. The proxy-to-engine loopback hop remains plaintext.
 
-The connection parameters are described in [Connect](/getting-started/connect/):
+On 2026-11-04 a credential-free SSL negotiation check of the public endpoint returned `N` (TLS not offered). **Use HTTPS or MCP for public-network access while this is the case.** This is deployment state, not a missing source capability. See [Connect](/getting-started/connect/).
 
-- Host `db.database.pizza`, port `5432`.
-- Database name `acme/production` (slash included).
-- Password is your API key; the user field is ignored.
-- `sslmode=require` when the deployment serves TLS; `sslmode=disable` only when SSL negotiation is declined or the hop is trusted.
+The examples below require a TLS-enabled deployment and deliberately fail rather than send credentials over public plaintext. Use `sslmode=verify-full` with a trusted hostname-matching certificate where supported. `sslmode=require` demands encryption but is not a substitute for explicit hostname verification. Use `sslmode=disable` only on a deliberately trusted local or tunneled hop, never as a public-network fallback.
 
-## Connection URI
+## Parameters and URI
+
+- Host: `db.database.pizza`; port: `5432`.
+- Database: `acme/production`, including the slash.
+- User: ignored (`u` is conventional).
+- Password: your database-scoped API key, configured privately.
+
+A URI must percent-encode the slash:
 
 ```text
-postgresql://u:pz_live_REPLACE_ME@db.database.pizza:5432/acme%2Fproduction?sslmode=disable
+postgresql://u:pz_live_REPLACE_ME@db.database.pizza:5432/acme%2Fproduction?sslmode=require
 ```
 
-Use this everywhere a client accepts a URI. The `/` in the database name is percent-encoded as `%2F`.
+Discrete driver or GUI fields use `acme/production` literally.
 
 ## Command-line tools
 
-```bash
-# Interactive
-PGPASSWORD='pz_live_REPLACE_ME' psql \
-  "postgresql://u@db.database.pizza:5432/acme%2Fproduction?sslmode=disable"
-
-# Single command
-PGPASSWORD='pz_live_REPLACE_ME' psql \
-  "postgresql://u@db.database.pizza:5432/acme%2Fproduction?sslmode=disable" \
-  -c "SELECT * FROM users LIMIT 5;"
-
-# Run a script
-PGPASSWORD='pz_live_REPLACE_ME' psql \
-  "postgresql://u@db.database.pizza:5432/acme%2Fproduction?sslmode=disable" \
-  -f schema.sql
-```
-
-`pgcli` works the same way:
+With `PZ_API_KEY` configured in your local environment:
 
 ```bash
-pgcli "postgresql://u:pz_live_REPLACE_ME@db.database.pizza:5432/acme%2Fproduction?sslmode=disable"
+PGPASSWORD="$PZ_API_KEY" psql \
+  'postgresql://u@db.database.pizza:5432/acme%2Fproduction?sslmode=require' \
+  -c 'SELECT 1 AS ready'
 ```
 
-## GUIs
+Use `-f schema.sql` instead of `-c` for a script. `pgcli` accepts the same URI. Do not put a real key into a shared command or prompt.
 
-Some GUI tools connect using the connection type **PostgreSQL**, but support varies and is not guaranteed. DBeaver, DataGrip, TablePlus, and pgAdmin have been reported to work in basic use:
-
-- **Host**: `db.database.pizza`
-- **Port**: `5432`
-- **Database**: `acme/production`
-- **User**: `u` (any value)
-- **Password**: your API key
-- **SSL**: require (or disable only on a deployment that declines TLS)
-
-Most GUIs use discrete fields, so enter `acme/production` literally — no `%2F` encoding needed. A GUI that runs introspection beyond the [emulated catalog subset](/internals/postgres-protocol/) may fail; test it against your actual schema before relying on it.
-
-## Drivers
-
-### Node.js — `pg`
+## Node.js — pg
 
 ```javascript
 import { Client } from 'pg';
@@ -74,84 +50,75 @@ const client = new Client({
   port: 5432,
   user: 'u',
   password: process.env.PZ_API_KEY,
-  database: 'acme/production', // discrete field, no encoding
-  ssl: false,
+  database: 'acme/production',
+  ssl: true, // TLS plus certificate verification; requires a TLS-enabled proxy
 });
 
 await client.connect();
-const res = await client.query('SELECT * FROM users WHERE id = $1', [1]);
-console.log(res.rows);
+const result = await client.query('SELECT * FROM users WHERE id = $1', [1]);
+console.log(result.rows);
 await client.end();
 ```
 
-See [JavaScript](/clients/javascript/) for a fuller walkthrough.
+node-postgres defaults to `ssl: false`; set it explicitly for a protected connection. Provide an appropriate CA for a private trust chain rather than disabling certificate validation. [JavaScript](/clients/javascript/) also documents the HTTPS alternative.
 
-### Python — `psycopg`
+## Python — psycopg
 
 ```python
 import os
 import psycopg
 
-conn = psycopg.connect(
+with psycopg.connect(
     host="db.database.pizza",
     port=5432,
     user="u",
     password=os.environ["PZ_API_KEY"],
     dbname="acme/production",
-    sslmode="disable",
-)
-cur = conn.cursor()
-cur.execute("SELECT * FROM users WHERE id = %s", (1,))
-print(cur.fetchall())
-conn.close()
+    sslmode="verify-full",
+) as conn:
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM users WHERE id = %s", (1,))
+        print(cur.fetchall())
 ```
 
-See [Python](/clients/python/) for more.
+Use a trusted certificate for `verify-full`. [Python](/clients/python/) has an HTTPS script path that does not depend on PostgreSQL TLS configuration.
 
-#### Array parameters are rejected
+## Go — pgx / lib/pq
 
-`WHERE id = ANY($1)` with a text[]/int[] parameter returns SQLSTATE `0A000`. The engine has no array type and does not expand a bound array; rewrite the query with an `IN (?, ?, ...)` list. This is documented in [Data types](/sql-reference/data-types/) and reported by the capability document.
-
-#### Discovery and quota errors
-
-Read the real build from `pizzasql_version()` or the `pizzasql.version` ParameterStatus; `server_version` remains the PostgreSQL compatibility string. `GET /capabilities` (engine HTTP API) serves the machine-readable capability document. When the per-organization connection quota is full, the proxy returns SQLSTATE `53300` with the current/limit numbers and a retry hint; retry after a short backoff or reduce the client pool size. See [Limits & quotas](/guides/limits/#connections-and-idle-disconnects).
-
-### Go — `pgx` / `lib/pq`
+Both accept PostgreSQL-style connection strings. Configure the password from your local secret environment rather than embedding it in source. For example, with pgx:
 
 ```go
-import (
-    "github.com/jackc/pgx/v5"
-)
-
-conn, err := pgx.Connect(ctx,
-    "postgresql://u:pz_live_REPLACE_ME@db.database.pizza:5432/acme%2Fproduction?sslmode=disable")
+cfg, err := pgx.ParseConfig("postgresql://u@db.database.pizza:5432/acme%2Fproduction?sslmode=verify-full")
+if err != nil {
+    return err
+}
+cfg.Password = os.Getenv("PZ_API_KEY")
+conn, err := pgx.ConnectConfig(ctx, cfg)
 ```
 
-pgx decodes the type metadata advertised for single-table direct column selects: `BIGINT` arrives as `int64` and `DATETIME`/`TIMESTAMP` columns arrive as `time.Time` (UTC, via `timestamptz`). Expressions and joins still report `TEXT`. An experimental Gogs fork uses a `pgx`-backed `database/sql` driver against a local PizzaSQL source build only — it is not a deployed configuration (see [Compatibility](/sql-reference/compatibility/)).
+This fragment assumes imports for `os` and `github.com/jackc/pgx/v5`, a context, and normal error/connection cleanup in the caller.
 
-## Placeholders
+Current source advertises `BIGINT` and `DATETIME`/`TIMESTAMP` metadata for supported direct projections; expressions and joins can report `TEXT`. Verify decoding against your tenant's running engine.
 
-PizzaSQL accepts both `?` (SQLite style) and `$1`, `$2` (PostgreSQL style) placeholders. Prefer the style your driver parameterizes natively — most Postgres drivers use `$1`, `$2`.
+## GUIs and ORMs
 
-```sql
--- PostgreSQL style
-SELECT * FROM invoices WHERE user_id = $1 AND status = $2;
+Select PostgreSQL as the connection transport and enter the parameters above, requiring TLS and a trusted certificate. Introspection beyond the emulated catalog subset can fail. Neither a PostgreSQL driver nor a SQLite-inspired dialect establishes universal ORM compatibility. Test your complete migration and query path before relying on it.
 
--- SQLite style
-SELECT * FROM invoices WHERE user_id = ? AND status = ?;
-```
+## SQL and parameters
 
-## Dialect notes
+Use the placeholders your driver binds natively: `$1`, `$2` for `pg`/pgx and `%s` for psycopg. HTTP examples use `?` with a `params` array.
 
-The SQL you send is **SQLite-compatible**, not PostgreSQL. That means:
+- `INTEGER PRIMARY KEY`, not `SERIAL`.
+- `TEXT`, not a length-enforced `VARCHAR(n)`.
+- No PostgreSQL schemas, roles, `ARRAY`, `JSONB`, or `ENUM` types.
+- `UNIQUE` and unique indexes are enforced in current source builds; duplicates are `23505`. Older tables may need explicit index creation. See [Constraints](/sql-reference/constraints/).
+- `CHECK`, foreign-key declarations, and non-constant defaults are rejected with `0A000`.
+- `ANY`/`ALL` array predicates are rejected with `0A000`; use a bound scalar `IN` list instead.
 
-- `INTEGER PRIMARY KEY`, not `SERIAL`; values are assigned when omitted.
-- `TEXT`, not `VARCHAR(n)` with enforced length.
-- No schemas, roles, `ARRAY`, `JSONB`, or `ENUM` types.
-- `RETURNING` works for `INSERT`, `UPDATE`, and `DELETE`; PostgreSQL-specific features such as `JSONB` and arrays do not — check [Compatibility](/sql-reference/compatibility/) first.
+## Transactions, discovery, and quotas
 
-The [SQL reference](/sql-reference/overview/) is the source of truth for what's supported.
+The wire interface supports optimistic DML `BEGIN`/`COMMIT`/`ROLLBACK` and savepoints. DDL is non-transactional. This is not PostgreSQL MVCC or row locking; read [Transactions](/engine/transactions/). HTTP and MCP reject transaction statements.
 
-## Transactions
+Discover the engine using `pizzasql_version()` or the `pizzasql.version` startup parameter. The generic `server_version` is a protocol-compatibility string, not your engine build. The console's engine information exposes version/capability documents.
 
-The PostgreSQL protocol forwards `BEGIN`, `COMMIT`, `ROLLBACK`, and `SAVEPOINT` to the engine, so you can use multi-statement DML transactions over the wire. This is **not** the full PostgreSQL transactional surface: transactions here are optimistic DML transactions (see [Transactions](/engine/transactions/)), and DDL inside a transaction is not rolled back. The HTTP API rejects transaction statements outright.
+A full organization connection quota returns `53300` with a retry hint. Bound client pools, release idle connections appropriately, and use retry/backoff. See [Limits & quotas](/guides/limits/).

@@ -1,9 +1,9 @@
 ---
 title: JavaScript
-description: Query database.pizza from Node.js and the browser using pg or fetch.
+description: Query database.pizza from server-side JavaScript using HTTPS fetch or a tested PostgreSQL driver over TLS.
 ---
 
-You have two ways to reach your database from JavaScript: the **PostgreSQL wire protocol** via the `pg` driver, or the **HTTP query API** via `fetch`. Choose based on where your code runs and whether you need transactions.
+Use the **HTTPS query API** with server-side `fetch`, or the partial **PostgreSQL wire protocol** with a tested `pg` driver over TLS. Never embed a database key in public browser code. On 2026-11-04 the public PostgreSQL endpoint declined TLS negotiation; use HTTPS until TLS is offered. The wire examples below deliberately require TLS rather than falling back to plaintext. See [Connect](/getting-started/connect/).
 
 Set your key in the environment before starting:
 
@@ -13,7 +13,7 @@ export PZ_API_KEY='pz_live_REPLACE_ME'
 
 ## With `pg` (Node.js)
 
-The `pg` driver (node-postgres) gives you a real connection pool and transaction support. The database name includes the `/`. node-postgres has `ssl: false` by default, which works in `optional` TLS mode; when the proxy requires TLS, set `ssl: true` (or provide a CA) and expect `08P01` until you do.
+The `pg` driver (node-postgres) provides connection pooling and access to PizzaSQL's optimistic DML transactions. The database name includes `/`. Set `ssl: true` explicitly and use a trusted certificate; the driver's default `ssl: false` is not a safe public-network fallback.
 
 ```bash
 npm install pg
@@ -28,7 +28,7 @@ const client = new Client({
   user: 'u',                       // ignored; any value
   password: process.env.PZ_API_KEY,
   database: 'acme/production',     // discrete field — no %2F encoding
-  ssl: false,                      // set true when the proxy requires TLS
+  ssl: true,                       // requires TLS and a trusted certificate
 });
 
 await client.connect();
@@ -71,19 +71,19 @@ const pool = new Pool({
   user: 'u',
   password: process.env.PZ_API_KEY,
   database: 'acme/production',
-  ssl: false,
+  ssl: true,
   max: 10,
 });
 
 const { rows } = await pool.query('SELECT COUNT(*) AS n FROM users');
 ```
 
-## With `fetch` (any runtime)
+## With `fetch` (server-side runtimes)
 
-The HTTP API needs no driver, so it works in the browser, in edge functions, and in serverless runtimes. It does not support transactions.
+The HTTPS API needs no driver. Use it from Node.js, edge functions, or serverless backends, not public browser code. It does not support transactions.
 
 ```javascript
-const KEY = process.env.PZ_API_KEY; // or import.meta.env for Vite/browser
+const KEY = process.env.PZ_API_KEY; // server-side environment only
 
 async function query(sql, params = []) {
   const res = await fetch(

@@ -37,7 +37,7 @@ Constraints in PizzaSQL fall into two camps: the ones that are actually implemen
 
 ## UNIQUE
 
-`UNIQUE` is enforced, but through validating scans rather than a durable uniqueness claim:
+Current source builds enforce `UNIQUE` under the table publication gate. Column-based indexes use rebuildable ownership caches after a durable scan; expression indexes still validate by scanning. This is not a native durable uniqueness-index page structure:
 
 - `CREATE UNIQUE INDEX` and inline/table-level `UNIQUE` constraints both materialize into a unique index definition.
 - The core write paths (`INSERT`, `UPDATE`, `DELETE`, and their `ON CONFLICT`/`OR` variants) validate non-`NULL` values against the table's unique indexes before persisting, rejecting duplicates with `UNIQUE constraint failed`. Over the PostgreSQL wire protocol the rejection is SQLSTATE `23505`, and the message names the violated index.

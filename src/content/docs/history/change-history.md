@@ -1,9 +1,9 @@
 ---
 title: Change history
-description: Inspect recorded row and schema changes, compare earlier values, and understand what changed in a small or AI-built application.
+description: Inspect row, schema, index-definition, and index-maintenance history, and select an earlier journal state.
 ---
 
-database.pizza derives data and schema history from its storage journal, so you can answer questions like "what did this row look like earlier?", "when was this table created?", and "what changed after that agent ran?" This page explains what history exists, where to see it, and its limits.
+database.pizza derives row, schema, index-definition, and index-maintenance history from its storage journal, so you can answer questions like "what did this row look like earlier?", "when was this table created?", and "what changed after that agent ran?" This page explains what history exists, where to see it, and its limits.
 
 ## What history is recorded
 
@@ -15,7 +15,8 @@ Because the journal is keyed by the same namespaces described in [Storage model]
 | --- | --- | --- |
 | `data` | Row-level changes | An `INSERT`, `UPDATE`, or `DELETE` on a table row |
 | `schema` | Table definitions | `CREATE TABLE`, `ALTER TABLE`, `DROP TABLE` |
-| `index` | Index definitions | `CREATE INDEX`, `DROP INDEX` |
+| `index`, `indexes` | Index definitions and catalog | `CREATE INDEX`, `DROP INDEX` |
+| `idx` | Persisted index-maintenance keys, when emitted by that engine/path | Index entries written or removed alongside row changes |
 | `sys` | Catalog and structural state | The table list and rowid counters |
 
 ## Inspecting row history
@@ -39,12 +40,12 @@ Schema history is what makes it possible to reconstruct *what the database looke
 
 History is available in two places:
 
-1. **The dashboard History view.** Open a database and use **History** to move through the journal, inspect operations, and drill into a record's revisions. This is the primary human-facing surface.
+1. **The dashboard History view.** Open **History** in the organization sidebar, then choose a database. Filter data, schema, or index operations, move through journal positions, and inspect before/after state. A position is an ordered storage operation, not a guaranteed wall-clock or transaction-consistent checkpoint. Use the database's **Data → History** controls to select a table state for restore. This is the primary human-facing surface.
 2. **The raw WAL endpoint.** The dashboard timeline reads from `GET /api/v1/databases/{id}/wal`, which streams the journal filtered to your database. This is a dashboard-session endpoint, not an API-key surface; most teams should use the timeline view rather than the raw endpoint.
 
 ## How reconstruction works
 
-History is not a separate "audit table" maintained alongside your data — it is the storage journal itself. To show the state at position *N*, the timeline replays records `0..N`, building the in-memory representation of each table, index, and schema object. That is why inspecting a point deep in history can be more expensive than reading live data: it replays the prefix of the journal up to that point.
+History is not a separate "audit table" maintained alongside your data — it is the storage journal itself. To show the state at position *N*, the timeline replays records `0..N`, building the in-memory representation of each table, index, and schema object. The worker indexes key versions and reconstructs their values at the selected position. This is inspection of the journal, not an engine snapshot or an automatic whole-database restore. Loading and indexing the journal can cost more than querying live data.
 
 ## What history does *not* tell you
 

@@ -6,7 +6,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'database.pizza docs',
-      description: 'A safety-first SQL database for small and AI-built applications, with row history, schema history, and scoped, reviewable undo.',
+      description: 'A hosted database for small apps, agents, and scripts, with row, schema, and index history and scoped SQL-based restore.',
       favicon: '/favicon.svg',
       customCss: ['./src/styles/custom.css'],
       components: {

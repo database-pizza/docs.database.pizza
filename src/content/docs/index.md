@@ -1,9 +1,9 @@
 ---
 title: database.pizza
-description: A safety-first SQL database for small and AI-built applications, with row history, schema history, and scoped, reviewable undo.
+description: A hosted database for small apps, agents, and scripts, with row, schema, and index history and scoped SQL-based restore.
 ---
 
-database.pizza is a **safety-first SQL database** for small applications that are built quickly — by hand, by a small team, or by AI agents. When you're moving fast, mistakes happen. database.pizza lets you **inspect available row and schema history** and **undo changes with scoped, reviewed SQL**.
+database.pizza is a **hosted database for small apps, agents, and scripts**. Use SQLite-style SQL over HTTPS or MCP, inspect recorded row, schema, and index history, and select an earlier state for scoped SQL-based restore.
 
 Every database runs on [PizzaSQL](/internals/architecture/), a SQL engine built from scratch in Go. PizzaSQL speaks **SQLite-inspired SQL** — it is *not* PostgreSQL and *not* a drop-in SQLite replacement. It exposes a **partially** PostgreSQL-compatible wire protocol, which lets some PostgreSQL clients connect, but the SQL dialect and server behavior remain SQLite-style. The [compatibility notes](/sql-reference/compatibility/) are the honest map of what works and what does not.
 
@@ -14,7 +14,7 @@ Every database runs on [PizzaSQL](/internals/architecture/), a SQL engine built 
 
 ## Three ways in
 
-- **New here?** Follow the [Quickstart](/getting-started/quickstart/) — five minutes from empty account to your first query.
+- **New or returning?** Open [the agent handoff](https://app.database.pizza/start), then follow the [Quickstart](/getting-started/quickstart/). Existing users choose a database; the [preview](https://app.database.pizza/start?preview=1) creates nothing.
 - **Writing SQL?** Start with [SQL at a glance](/sql-reference/overview/) and keep the [compatibility notes](/sql-reference/compatibility/) close before generating production queries.
 - **Curious how it works?** The [Engine Internals](/internals/architecture/) section walks through the PizzaSQL architecture, query lifecycle, and storage model.
 
@@ -24,6 +24,7 @@ Every database gives you a managed access surface plus a dashboard:
 
 | Surface | Where | Best for |
 | --- | --- | --- |
+| MCP | `https://db.database.pizza/mcp` | Coding-agent tools with a database-scoped key |
 | PostgreSQL wire protocol (partial) | `db.database.pizza:5432` | `psql` and tested Postgres drivers |
 | HTTP query API | `https://db.database.pizza/<org>/<db>/query` | Any language, serverless, and edge workloads |
 | Auto-generated REST API (preview) | `https://db.database.pizza/<org>/<db>/api/<table>` | Single-table CRUD without writing SQL |
@@ -31,7 +32,7 @@ Every database gives you a managed access surface plus a dashboard:
 
 All programmatic access is authenticated with **API keys**. Keys carry granular scopes — `read`, `write`, `alter_table`, `drop_table` — so you can issue a read-only key to a reporting job and a write key to an ingestion service. See [API keys & permissions](/clients/api-keys/).
 
-> **Before you connect anything:** the PostgreSQL wire protocol is **partial**, and TLS availability depends on the deployment: use `sslmode=require` when the managed proxy serves a certificate, and `sslmode=disable` only when SSL negotiation is declined or the hop is trusted. Credentials and query traffic are not encrypted end to end even with TLS, because the proxy-to-engine loopback hop is plaintext. Verify that your specific client, driver, or ORM works before committing to it. Read [PostgreSQL protocol](/internals/postgres-protocol/) and [Connect](/getting-started/connect/).
+> **Public-network connections:** prefer HTTPS or MCP. Source supports PostgreSQL proxy TLS, but the public endpoint declined TLS in a credential-free negotiation check on 2026-11-04. Do not send a key over public plaintext. A TLS-enabled deployment can use `sslmode=require` or `verify-full`; the engine hop stays plaintext loopback. The wire interface is partial, not general PostgreSQL/ORM compatibility. Read [Connect](/getting-started/connect/).
 
 ## A taste
 
@@ -44,11 +45,11 @@ curl -s https://db.database.pizza/acme/production/query \
   -d '{"sql": "SELECT 1 + 1 AS answer"}'
 ```
 
-Or with `psql`, using the key as the password:
+On a **TLS-enabled deployment**, with `psql` using the key as the password (fails closed if TLS is unavailable):
 
 ```bash
 PGPASSWORD='pz_live_REPLACE_ME' psql \
-  "postgresql://u@db.database.pizza:5432/acme%2Fproduction?sslmode=disable"
+  "postgresql://u@db.database.pizza:5432/acme%2Fproduction?sslmode=require"
 ```
 
 Throughout these docs we use a fictional organization `acme` and database `production`, and the placeholder key `pz_live_REPLACE_ME`. Substitute your own values — and never paste a real key into anything you share.
@@ -67,6 +68,7 @@ Throughout these docs we use a fictional organization `acme` and database `produ
 ## Use your database
 
 - [PostgreSQL clients](/clients/postgresql/) — `psql` and driver configuration, with the compatibility caveats.
+- [MCP for agents](/clients/mcp/) — client-specific setup, access boundaries, and key management.
 - [HTTP query API](/clients/http-api/) — the managed JSON endpoint.
 - [JavaScript](/clients/javascript/) and [Python](/clients/python/) — idiomatic examples.
 - [REST API](/clients/rest-api/) — auto-generated CRUD endpoints.

@@ -1,125 +1,93 @@
 ---
 title: Quickstart
-description: Create an organization, a database, and an API key, then run your first query over the PostgreSQL-compatible wire protocol or HTTP.
+description: Create or choose a hosted database, configure a private key, and verify a first write and read over MCP or HTTPS.
 ---
 
-This guide gets you from a fresh account to a working query in about five minutes. It assumes you've signed up at `app.database.pizza`.
+PizzaSQL is database.pizza's own SQL engine, with a SQLite-inspired dialect. It is not a drop-in SQLite or PostgreSQL replacement. Start with a small, non-critical workload and review [Compatibility](/sql-reference/compatibility/) before generating a schema.
 
-We'll use a fictional organization **acme** and a database **production**. Replace both with your own names throughout.
+## 1. Create or choose a database
 
-## 1. Create an organization
+Open [app.database.pizza/start](https://app.database.pizza/start) and sign in.
 
-Organizations group your databases, members, and API keys. When you create one, its name becomes a **slug** — the URL-safe identifier used in every connection path.
+- A new account gets a workspace, a starter database named `app`, and a scoped key.
+- An existing account chooses an organization and database. **Connect agent** creates a new key only when you explicitly request one.
+- To inspect the handoff without provisioning anything, open [the preview](https://app.database.pizza/start?preview=1).
 
-1. Sign in to the dashboard.
-2. Create an organization named `acme`.
-3. The slug becomes `acme` (lowercased, spaces turned into `-`).
+You can also create organizations and databases manually in the console. Every connection belongs to an organization and database; the examples below use the fictional path `acme/production`. Substitute the path shown in your own handoff.
 
-Your connection path always starts with the organization slug, then the database slug: `acme/production`.
+## 2. Save a private key
 
-## 2. Create a database
+The full key is shown **once**. Save it in a local secret manager or environment; never paste it into an agent conversation, commit it, or put it in public browser code.
 
-Inside the `acme` organization, create a database named `production`.
-
-- The database name also becomes a slug: `production`.
-- Each database has an isolated PizzaSQL namespace with its own schema and data.
-- Databases are isolated from one another — a key for one can't touch another unless you grant it access.
-
-## 3. Create an API key
-
-Every programmatic connection authenticates with an API key, which doubles as your PostgreSQL password.
-
-1. Open the `production` database and go to **API keys**.
-2. Choose **Create API key** and give it a name like `local dev`.
-3. Select the scopes you need. For now, enable **Read** and **Write** (and **Alter table** if you'll be creating tables from a client).
-4. Copy the key immediately — it's shown only once.
-
-A live key looks like `pz_live_…`. The docs use the placeholder `pz_live_REPLACE_ME`; substitute your real key.
-
-> **Security**: Treat the key like a password. Don't commit it to source control, and prefer environment variables. See [API keys & permissions](/clients/api-keys/).
-
-## 4. Run your first query
-
-You have two equivalent options. Pick whichever fits your workflow.
-
-### Over HTTP
+For the following examples, set `PZ_API_KEY` privately in your shell. In Bash:
 
 ```bash
-curl -s https://db.database.pizza/acme/production/query \
-  -H "Authorization: Bearer pz_live_REPLACE_ME" \
-  -H "Content-Type: application/json" \
-  -d '{"sql": "SELECT 1 + 1 AS answer"}'
+read -rsp 'database.pizza key: ' PZ_API_KEY; export PZ_API_KEY; printf '\n'
 ```
 
-```json
-{
-  "columns": [{ "name": "answer", "type": "INTEGER" }],
-  "rows": [[2]],
-  "rowsReturned": 1,
-  "executionTimeMicro": 108,
-  "bytesRead": 4
-}
-```
+New starter keys allow `read`, `write`, and `alter_table`, not `drop_table`. **Connect agent** also offers read-only keys. Build permissions still allow row deletion and schema/index changes. Existing keys can be revoked in **Connect agent** or **API keys**; lost keys cannot be displayed again.
 
-The HTTP query API is documented in full at [HTTP query API](/clients/http-api/).
+## 3. Connect an agent, or use HTTPS
 
-### With an agent over MCP
+### With an agent
 
-The same key works with the [MCP endpoint](/clients/mcp/). Copy the config from
-the `/start` success screen, or point an MCP client at
-`https://db.database.pizza/mcp` with `Authorization: Bearer pz_live_REPLACE_ME`.
+Choose your client in **Connect agent**, configure it locally, then copy the credential-free first prompt. [MCP for agents](/clients/mcp/) has client-specific instructions for Claude Code, Cursor, and VS Code.
 
-### Over PostgreSQL
+### With a script
+
+Run one statement over HTTPS:
 
 ```bash
-PGPASSWORD='pz_live_REPLACE_ME' psql \
-  "postgresql://u@db.database.pizza:5432/acme%2Fproduction?sslmode=disable" \
-  -c "SELECT 1 + 1 AS answer;"
+curl --fail-with-body https://db.database.pizza/acme/production/query \
+  -H "Authorization: Bearer $PZ_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"sql":"SELECT 1 + 1 AS answer"}'
 ```
 
-Three details matter here:
+The result includes `columns` and `rows`; the answer row is `[2]`. Authentication and SQL errors are failures, not successful setup. See the [HTTP query API](/clients/http-api/) for the response fields.
 
-- The **database name is `acme/production`** — the slash is part of the name. In a connection URI it must be percent-encoded as `acme%2Fproduction`.
-- **TLS depends on the deployment**: use `sslmode=require` when the proxy serves a certificate, and `sslmode=disable` only when SSL negotiation is declined or the hop is trusted. Even with TLS, the proxy-to-engine loopback hop is plaintext.
-- The wire protocol is **partially** PostgreSQL-compatible — `psql` works, but the SQL you send is SQLite-style, not PostgreSQL. See [PostgreSQL clients](/clients/postgresql/) and [Compatibility](/sql-reference/compatibility/).
+## 4. Write and read a note
 
-Full details are in [Connect](/getting-started/connect/) and [PostgreSQL clients](/clients/postgresql/).
-
-## 5. Create a table and query it
-
-Now create a table and read it back:
+Only run the following in an empty example database. Inspect existing tables before changing an existing project.
 
 ```bash
-curl -s https://db.database.pizza/acme/production/query \
-  -H "Authorization: Bearer pz_live_REPLACE_ME" \
-  -H "Content-Type: application/json" \
-  -d '{"sql": "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL)"}'
-```
-
-Then insert and select:
-
-```bash
-curl -s https://db.database.pizza/acme/production/query \
-  -H "Authorization: Bearer pz_live_REPLACE_ME" \
-  -H "Content-Type: application/json" \
-  -d '{"sql": "INSERT INTO users (name, email) VALUES (?, ?)", "params": ["Ada", "ada@acme.example"]}'
+curl --fail-with-body https://db.database.pizza/acme/production/query \
+  -H "Authorization: Bearer $PZ_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"sql":"CREATE TABLE notes (id INTEGER PRIMARY KEY, title TEXT, body TEXT)"}'
 ```
 
 ```bash
-curl -s https://db.database.pizza/acme/production/query \
-  -H "Authorization: Bearer pz_live_REPLACE_ME" \
-  -H "Content-Type: application/json" \
-  -d '{"sql": "SELECT * FROM users"}'
+curl --fail-with-body https://db.database.pizza/acme/production/query \
+  -H "Authorization: Bearer $PZ_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"sql":"INSERT INTO notes (title, body) VALUES (?, ?)","params":["Welcome","My first stored note"]}'
 ```
 
-Note the `?` placeholders with a `params` array — always pass values this way rather than concatenating them into the SQL string.
+```bash
+curl --fail-with-body https://db.database.pizza/acme/production/query \
+  -H "Authorization: Bearer $PZ_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"sql":"SELECT id, title, body FROM notes"}'
+```
 
-`INTEGER PRIMARY KEY` values are assigned automatically when omitted. PizzaSQL accepts `UNIQUE`, but does not currently enforce it; enforce email uniqueness in your application. See [Constraints](/sql-reference/constraints/) before relying on schema-level validation.
+`INTEGER PRIMARY KEY` assigns an ID when omitted. Always bind values with `params` rather than concatenating user input into SQL. HTTP and MCP accept one statement per call and reject transaction statements.
+
+Current source builds enforce `UNIQUE` constraints and unique indexes; duplicates return SQLSTATE `23505`. Inline constraints are materialized when a table is created, so an old table whose declarations were discarded does not gain enforcement just because its engine is upgraded. Check the running engine and [Constraints](/sql-reference/constraints/); do not rely on the old blanket claim that uniqueness is unsupported.
+
+## 5. Inspect what changed
+
+Open your database's **Data** view and your organization's **History** view. Inspect a record's versions, schema changes, and index operations. The data history view can select an earlier journal position and restore a row or table with SQL you review. See [Change history](/history/change-history/) and [Undo & recovery](/history/undo-recovery/) for the retention and restore boundaries.
+
+## What about PostgreSQL clients?
+
+PizzaSQL has a **partial PostgreSQL wire interface**, not PostgreSQL SQL semantics. The managed proxy supports TLS in source, but deployment configuration determines whether it is offered. On 2026-11-04, a credential-free SSL negotiation check of the public endpoint returned `N` (TLS not offered).
+
+Use HTTPS or MCP for public-network access while the proxy does not offer TLS. Do not work around it by sending a key over public plaintext. For a TLS-enabled deployment, start with `sslmode=require` (or `verify-full` with a trusted hostname-matching certificate). See [Connect](/getting-started/connect/) and [PostgreSQL clients](/clients/postgresql/).
 
 ## Next steps
 
-- [Change history](/history/change-history/) — see what your queries just changed.
-- [Undo & recovery](/history/undo-recovery/) — revert a mistake before it matters.
-- [Connect](/getting-started/connect/) — every connection parameter, in one place.
-- [Your first schema](/getting-started/first-schema/) — a realistic schema with indexes.
-- [SQL reference](/sql-reference/overview/) — the full dialect.
+- [Your first schema](/getting-started/first-schema/) — a larger example and schema boundaries.
+- [API keys & permissions](/clients/api-keys/) — restrict and rotate access.
+- [Limits & quotas](/guides/limits/) — the default beta quotas and how to inspect your actual quota.
+- [Import & export](/guides/import-export/) — keep an independent copy of important data.
