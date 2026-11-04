@@ -95,7 +95,7 @@ Current source builds enforce `UNIQUE` constraints and unique indexes; duplicate
 
 Open your database's **Data** view and your organization's **History** view. Inspect a record's versions, schema changes, and index operations. The data history view can select an earlier journal position and restore a row or table with SQL you review.
 
-An approved agent can also call `get_history` through MCP, with bounded
+An MCP key with read access can also call `get_history`, with bounded
 pagination. Restore with reviewed SQL; treating raw index-maintenance records as
 a restore API is not supported. See [Change history](/history/change-history/)
 and [Undo & recovery](/history/undo-recovery/) for retention and restore
