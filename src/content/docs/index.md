@@ -32,7 +32,7 @@ Every database gives you a managed access surface plus a dashboard:
 
 All programmatic access is authenticated with **API keys**. Application keys carry granular scopes — `read`, `write`, `alter_table`, `drop_table` — so you can issue a read-only key to a reporting job and a write key to an ingestion service. MCP keys are workspace-scoped and expire: the copied setup prompt uses a 6-hour key. See [API keys & permissions](/clients/api-keys/).
 
-> **Public-network connections:** prefer HTTPS or MCP. Source supports PostgreSQL proxy TLS, but the public endpoint declined TLS in a credential-free negotiation check on 2026-11-04. Do not send a key over public plaintext. A TLS-enabled deployment can use `sslmode=require` or `verify-full`; the engine hop stays plaintext loopback. The wire interface is partial, not general PostgreSQL/ORM compatibility. Read [Connect](/getting-started/connect/).
+> **Public-network connections:** use `sslmode=require` or `verify-full`. Workspaces created after the TLS cutover reject plaintext with `08P01` before the key is sent; older workspaces show a console banner and should be migrated. If a deployment has not installed a certificate yet, do not fall back to plaintext on a public network — use HTTPS or MCP. The engine hop stays plaintext loopback. The wire interface is partial, not general PostgreSQL/ORM compatibility. Read [Connect](/getting-started/connect/).
 
 ## A taste
 

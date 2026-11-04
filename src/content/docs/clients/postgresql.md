@@ -9,7 +9,9 @@ PizzaSQL speaks a **partial PostgreSQL wire protocol**, not PostgreSQL SQL seman
 
 The managed proxy implements TLS in source. `PGPROXY_TLS_MODE=optional` offers TLS when a certificate is installed; `required` rejects plaintext startup with `08P01`; `off` disables TLS. The proxy-to-engine loopback hop remains plaintext.
 
-On 2026-11-04 a credential-free SSL negotiation check of the public endpoint returned `N` (TLS not offered). **Use HTTPS or MCP for public-network access while this is the case.** This is deployment state, not a missing source capability. See [Connect](/getting-started/connect/).
+**Workspaces created after the TLS cutover require TLS.** A plaintext connection to one is rejected with `08P01` before the proxy asks for the password, so the API key never crosses the network. Workspaces created earlier still accept plaintext during the transition and show a console banner; move them to `sslmode=require` when you can.
+
+Whether a deployment currently offers TLS is deployment state. If `sslmode=require` fails with an SSL negotiation error, no certificate is installed yet; do not fall back to public plaintext. See [Connect](/getting-started/connect/).
 
 The examples below require a TLS-enabled deployment and deliberately fail rather than send credentials over public plaintext. Use `sslmode=verify-full` with a trusted hostname-matching certificate where supported. `sslmode=require` demands encryption but is not a substitute for explicit hostname verification. Use `sslmode=disable` only on a deliberately trusted local or tunneled hop, never as a public-network fallback.
 
