@@ -9,7 +9,7 @@ database.pizza supports three ways to move data around:
 - **CSV** — a single table's rows in comma-separated form.
 - **SQLite files** — native `.db` / `.sqlite` / `.sqlite3` files.
 
-Import and export happen through the dashboard (database **Settings → SQLite import and export**) or, for checksummed logical backups, through an approved coding agent's MCP connection. Logical backups are **SQL exports** with a checksum, not physical snapshots or point-in-time backups.
+Import and export happen through the dashboard (database **Settings → SQLite import and export**) or, for checksummed logical backups, through an MCP key with backup access. Logical backups are **SQL exports** with a checksum, not physical snapshots or point-in-time backups.
 
 For app-level access, script imports and exports through your own server using the [query API](/clients/http-api/) and [PostgreSQL protocol](/clients/postgresql/). The dashboard-session import/export endpoints do not accept application API keys.
 
@@ -32,7 +32,7 @@ dump over HTTPS also requires splitting it into individual statements.
 
 ## Logical backups and restore
 
-An approved agent creates a checksummed logical SQL export with `create_backup`.
+An MCP key with `backup_database` access creates a checksummed logical SQL export with `create_backup`.
 These exports are bounded:
 
 - **16 MiB** per export and **10 saved backups per database** (**128 MiB per

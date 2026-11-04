@@ -1,187 +1,138 @@
 ---
 title: MCP for agents
-description: Let a coding agent install and configure its own MCP connection to a browser-approved workspace, without pasting API keys into a prompt.
+description: Give a coding agent a short-lived MCP key, then connect it to a workspace database over Streamable HTTP.
 ---
 
-database.pizza exposes a **Streamable HTTP** MCP endpoint at:
+database.pizza exposes a **Streamable HTTP** MCP endpoint:
 
 ```text
 https://db.database.pizza/mcp
 ```
 
-The installed helper also runs a local stdio bridge, so clients that do not
-support remote HTTP MCP servers can use the same connection.
+Authentication is a Bearer token. There is no local helper, browser approval
+step, or long-lived credential in the prompt.
 
-## How connection works
+## Create a key
 
-1. Sign in at [app.database.pizza/start](https://app.database.pizza/start). Your
-   default workspace is created automatically. No database or API key is created
-   yet.
-2. Copy the agent instructions from the workspace (the empty state, or the
-   **Build with an agent** disclosure when you already have databases).
-3. Paste them into your current project, or use them to start a new one. The
-   instructions are collapsed by default; open **View instructions** to read them.
-4. Your agent downloads the setup helper, inspects it, and runs it. The helper
-   opens a browser approval page.
-5. Choose a workspace and approve the connection. You can optionally grant
-   destructive operations.
-6. The helper saves the credential outside your repository with `0600`
-   permissions, configures your MCP client, and exits. The credential is never
-   printed, and it is not placed in project configuration.
+Open a workspace and choose **MCP** in the sidebar.
 
-The approval page shows a short code. Compare it with the code your agent
-printed before approving. Only approve a connection you just started.
+- **Copy agent instructions** creates a new **6-hour setup key** and copies a
+  short prompt containing the MCP URL, the Bearer header, and the first steps.
+- **Create a custom MCP key** creates a build or read-only key with a lifetime
+  from 1 hour to 7 days. Build keys can optionally allow destructive operations.
 
-The resulting agent connection is **workspace-scoped**, expires after **7 days**,
-and can be revoked in **Workspace settings → Agent connections**. It is not an
-account-wide key: it cannot reach other workspaces, members, billing, or account
-security.
+The full key is shown once. The setup key is deliberately visible in the
+copied prompt, so treat that prompt as a secret:
 
-## Supported clients
+- Do not commit it, paste it into a public issue, or send it to analytics.
+- It expires after 6 hours. Revoke it sooner from **MCP** if it may have leaked.
+- App code must use a separate database key from **API keys**, not the MCP key.
 
-The helper recognizes `--client claude`, `--client codex`, `--client cursor`,
-and `--client vscode`. For another client, use `--client other`; it prints a
-secret-free stdio configuration you can adapt.
+## Connect a client
 
-Client behavior differs:
+Add a Streamable HTTP MCP server using your client's configuration format:
 
-- **Claude Code** stores the stdio bridge in its local MCP configuration.
-- **Codex** updates only its `database-pizza` server table in the project's
-  `.codex/config.toml`. The project must be trusted by Codex for project MCP
-  configuration to load.
-- **Cursor** adds `database-pizza` under `mcpServers` in
-  `.cursor/mcp.json` while preserving other servers.
-- **VS Code** adds it under `servers` in `.vscode/mcp.json`, preserving other
-  servers.
+```text
+URL:    https://db.database.pizza/mcp
+Header: Authorization: Bearer <key>
+```
 
-Some clients load MCP tools only when a session starts. After approval, the
-helper can complete setup and the first write/read through `--call` in the
-current session. Reopen the session when you want the native MCP tools listed.
-This guide and the helper's client formats are tested locally; a full hosted
-model session for every client is not yet independently verified.
+A client that uses the common `mcpServers` shape might look like:
 
-## What the agent can do
+```json
+{
+  "mcpServers": {
+    "database-pizza": {
+      "type": "http",
+      "url": "https://db.database.pizza/mcp",
+      "headers": { "Authorization": "Bearer pz_live_REPLACE_ME" }
+    }
+  }
+}
+```
 
-The agent has two kinds of access.
+Client formats differ. The copied setup prompt tells the agent to configure its
+own client; if the client only loads MCP on restart, the agent should say so
+instead of assuming it worked.
 
-**Database SQL** works like a database-scoped key, but you choose the database
-per call with `database_id`:
+## Key presets
 
-- `run_sql` — one SQLite-style statement. Transactions are rejected.
-- `list_tables` and `describe_table` — discover schema.
+| Preset | Lifetime | Scopes |
+| --- | --- | --- |
+| Setup (copy button) | Fixed 6 hours | read, write, alter table, create databases, view quota |
+| Build | 1 hour–7 days | Setup plus pause, logical backup/restore |
+| Read only | 1 hour–7 days | read |
+| Build + destructive | 1 hour–7 days | Build plus delete databases, backups, and tables |
 
-**Workspace operations** are organization-bounded and individually checked
-against the approved scopes:
+Setup keys cannot be made destructive. Custom key creation and revocation
+require workspace admin permission. Existing database-scoped `DB_ACCESS` keys
+do not get workspace tools.
+
+## Tools
+
+SQL tools take a `database_id` from `list_databases`:
+
+- `run_sql` — one SQLite-style statement per call; transactions are rejected.
+- `list_tables`, `describe_table`.
+
+Workspace tools are filtered by the key's scopes:
 
 | Tool | Purpose |
 | --- | --- |
-| `list_databases` | List databases in the approved workspace only |
+| `list_databases` | List PizzaSQL databases in this workspace |
 | `get_workspace` | Read quota and usage |
 | `get_database` | Database details and engine capabilities |
-| `create_database` | Create within the workspace quota |
+| `create_database` | Create within quota |
 | `pause_database` / `resume_database` | Change availability for new access |
-| `delete_database` | Hide/delete database access; requires an exact name confirmation |
+| `delete_database` | Tombstone database access; requires confirmation |
 | `create_backup` | Save a checksummed logical SQL export |
-| `list_backups` | List saved logical backups |
-| `export_backup` | Get an authenticated, checksummed download path |
-| `restore_backup` | Replay a backup into a **new** database |
+| `list_backups` / `export_backup` | List or get an authenticated download path |
+| `restore_backup` | Replay into a **new** database |
 | `delete_backup` | Permanently delete a saved backup |
-| `get_application_key_setup` | Get helper arguments for a separate app key |
-| `get_history` | Inspect retained row, schema, index-definition, and maintenance history |
+| `get_history` | Inspect retained row/schema/index history |
 
-Default approval includes read/write/schema changes, database creation,
-pause/resume, backups, restore, history, and app-key creation. **Row deletion
-and column/index changes are included in the default Work with data and schema
-approval.** Deleting databases or backups and `DROP TABLE` require the separate
-**destructive operations** checkbox.
+Deletion and `DROP TABLE` require the destructive preset. Database deletion does
+not securely erase retained storage and does not close active PostgreSQL
+tunnels.
 
-Existing database-scoped `DB_ACCESS` keys do not gain any of these workspace
-tools. Only browser-approved agent connections do.
+## Backups and history
 
-## Database deletion and pause
+Backups are **logical SQL exports**, not physical snapshots or point-in-time
+recovery:
 
-`pause_database` and `delete_database` change availability for **new** access:
+- 16 MiB per export, 10 per source database, 128 MiB per workspace.
+- Stop writes and schema changes before creating one; capture is not
+  transactionally consistent.
+- Unsupported generated columns/expression indexes fail closed.
+- Index-level `ON CONFLICT` policy is not reconstructed.
+- Restore creates a new database; it never overwrites the source. A failed
+  replay returns `partial`.
 
-- An already authenticated PostgreSQL tunnel is not terminated.
-- `delete_database` keeps a name tombstone so a later database with the same
-  slug cannot resolve to retained old data. This is a data-safety boundary, not
-  secure storage erasure.
-- `delete_backup` removes the saved file; it does not touch the source database.
-
-## Backups are logical exports
-
-`create_backup` is a real, checksummed SQL export stored server-side. It is
-**not** a physical snapshot, point-in-time backup, or retained-history archive.
-
-- **Stop application writes and schema changes before creating one.** Export is
-  not transactionally consistent.
-- The limit is **16 MiB** per logical export and **10 saved backups per database**
-  (**128 MiB per workspace**).
-- Unsupported schema features fail closed rather than producing a silently
-  incomplete backup.
-- Ordinary indexes, unique indexes, defaults, and `AUTOINCREMENT` are included
-  when the catalog can represent them safely. An index-level `ON CONFLICT`
-  policy is not reconstructed; reapply it explicitly after a restore.
-- `restore_backup` replays into a **new** database. The source is never
-  overwritten. A failed replay returns a `partial` result; never treat that as a
-  successful restore.
-
-`export_backup` returns a download path. The private local helper downloads it
-with `--download <backup-id> --out <private-file.sql>` and verifies the SHA-256
-before writing the file.
-
-## Application access is separate
-
-The workspace agent token is for agent operations, not app code. Ask the agent
-to use `get_application_key_setup`, or run the installed helper:
-
-```bash
-node ~/.config/database-pizza/agent-setup.mjs \
-  --app-key <database-id> --out .env.local
-```
-
-Add `--read-only` when the app does not write. The helper creates a separate
-**database-scoped** `DB_ACCESS` key, writes it to an ignored private file, and
-never prints it. It preserves unrelated environment entries and refuses tracked
-output paths. Never load that file into model context or ship it to a browser.
-
-## Inspecting history
-
-`get_history` returns retained operations for one approved database. Filters by
-table, paginates over that database/table history with `after`/`next_after`, and
-caps source files at **256 MiB** and each call at **100 records**. Values that
-are not valid UTF-8 are base64-encoded.
-
-Use the history to find an earlier row, schema, or index definition. Restore by
-running reviewed SQL. Raw index-maintenance keys in history are diagnostic, not
-a restore API. History is bounded by journal retention and is not an indefinite
-archive.
+`get_history` paginates retained journal operations, capped at 100 records per
+call and a 256 MiB source. Use reviewed SQL to restore a row, table, or schema
+definition; raw index-maintenance keys are not a restore API.
 
 ## Limits
 
-- **One statement per call.** No transactions over MCP.
-- **200 rows** per SQL result.
-- SQL payloads are capped at **64 KiB**; MCP bodies at **1 MiB**.
-- Agent tokens expire after **7 days**.
-- Workspace backup/restore/history operations have a small concurrency limit and
-  return a retryable error when busy.
+- One statement per MCP call; no transactions; 200 rows per SQL result.
+- MCP body 1 MiB; SQL 64 KiB.
+- Backup/restore/history work is bounded to two concurrent operations per
+  process and a five-minute transfer deadline.
 
 ## Troubleshooting
 
-- **Browser did not open:** use the printed approval URL.
-- **Code expired or was used:** run setup again from your agent.
-- **`access_denied`:** the approval was denied, or your workspace permission was
-  removed. Ask a workspace admin.
-- **Agent tools do not appear:** reopen the client session, or use the installed
-  helper with `--call`.
-- **Backup rejected:** stop writes, confirm the database is active and within
-  quota, and check whether the schema contains an unsupported definition.
-- **Connection revoked/expired:** re-run the helper and approve a new connection.
-  Credentials are never recoverable from the previous file.
+- **401/403:** the key is expired, revoked, or lacks the required scope.
+- **Database unavailable:** it is outside the key's workspace, not PizzaSQL, or
+  paused.
+- **Tools missing after configuration:** reopen the client session.
+- **Backup rejected:** stop writes, check quota/size, and check the schema for
+  unsupported definitions.
+- **Restore is partial:** inspect the new database, do not treat it as complete,
+  and do not delete the source.
 
 ## Related
 
-- [API keys & permissions](/clients/api-keys/) — scopes and revocation.
-- [Undo & recovery](/history/undo-recovery/) — what history can and cannot restore.
+- [API keys & permissions](/clients/api-keys/) — application keys and scopes.
+- [Undo & recovery](/history/undo-recovery/) — what history can restore.
 - [Import & export](/guides/import-export/) — moving data in and out.
 - [Using these docs with AI](/ai/) — raw Markdown and `llms.txt`.
