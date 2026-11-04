@@ -5,19 +5,31 @@ description: Create or choose a hosted database, configure a private key, and ve
 
 PizzaSQL is database.pizza's own SQL engine, with a SQLite-inspired dialect. It is not a drop-in SQLite or PostgreSQL replacement. Start with a small, non-critical workload and review [Compatibility](/sql-reference/compatibility/) before generating a schema.
 
-## 1. Create or choose a database
+## 1. Sign up and copy the agent instructions
 
-Open [app.database.pizza/start](https://app.database.pizza/start) and sign in.
+Open [app.database.pizza/start](https://app.database.pizza/start) and continue with
+Google or GitHub. Your default workspace is created automatically; no database
+or API key is created just by signing in.
 
-- A new account gets a workspace, a starter database named `app`, and a scoped key.
-- An existing account chooses an organization and database. **Connect agent** creates a new key only when you explicitly request one.
-- To inspect the handoff without provisioning anything, open [the preview](https://app.database.pizza/start?preview=1).
+The workspace empty state says *Paste these instructions into your current
+project, or use them to start a new one.* Copy the instructions and give them to
+your coding agent. The agent installs its MCP connection, then opens a browser
+approval page where you choose the workspace and approve access. No API key
+goes into the prompt.
 
-You can also create organizations and databases manually in the console. Every connection belongs to an organization and database; the examples below use the fictional path `acme/production`. Substitute the path shown in your own handoff.
+You can also create databases manually in the console. Every programmatic
+connection for app code belongs to one organization and one database; the
+examples below use the fictional path `acme/production`.
 
-## 2. Save a private key
+## 2. For application code, get a separate private key
 
-The full key is shown **once**. Save it in a local secret manager or environment; never paste it into an agent conversation, commit it, or put it in public browser code.
+The workspace agent connection expires and is for agent operations. App code
+should use a separate, database-scoped key. The agent can create one through
+the installed helper, or you can create one in the console under **API keys**.
+
+The full key is shown **once**. Save it in a local secret manager or environment;
+never paste it into an agent conversation, commit it, or put it in public browser
+code.
 
 For the following examples, set `PZ_API_KEY` privately in your shell. In Bash:
 
@@ -25,13 +37,18 @@ For the following examples, set `PZ_API_KEY` privately in your shell. In Bash:
 read -rsp 'database.pizza key: ' PZ_API_KEY; export PZ_API_KEY; printf '\n'
 ```
 
-New starter keys allow `read`, `write`, and `alter_table`, not `drop_table`. **Connect agent** also offers read-only keys. Build permissions still allow row deletion and schema/index changes. Existing keys can be revoked in **Connect agent** or **API keys**; lost keys cannot be displayed again.
+Default app keys can grant `read`, `write`, and `alter_table`; `drop_table` is a
+separate choice. Build permissions still allow row deletion and schema/index
+changes. Revoke keys you no longer need in **API keys**; lost keys cannot be
+displayed again.
 
 ## 3. Connect an agent, or use HTTPS
 
 ### With an agent
 
-Choose your client in **Connect agent**, configure it locally, then copy the credential-free first prompt. [MCP for agents](/clients/mcp/) has client-specific instructions for Claude Code, Cursor, and VS Code.
+Paste the workspace instructions into your coding agent. The agent installs and
+configures MCP, and you approve its workspace access in the browser. See
+[MCP for agents](/clients/mcp/) for the helper, supported clients, and limits.
 
 ### With a script
 
@@ -77,7 +94,13 @@ Current source builds enforce `UNIQUE` constraints and unique indexes; duplicate
 
 ## 5. Inspect what changed
 
-Open your database's **Data** view and your organization's **History** view. Inspect a record's versions, schema changes, and index operations. The data history view can select an earlier journal position and restore a row or table with SQL you review. See [Change history](/history/change-history/) and [Undo & recovery](/history/undo-recovery/) for the retention and restore boundaries.
+Open your database's **Data** view and your organization's **History** view. Inspect a record's versions, schema changes, and index operations. The data history view can select an earlier journal position and restore a row or table with SQL you review.
+
+An approved agent can also call `get_history` through MCP, with bounded
+pagination. Restore with reviewed SQL; treating raw index-maintenance records as
+a restore API is not supported. See [Change history](/history/change-history/)
+and [Undo & recovery](/history/undo-recovery/) for retention and restore
+boundaries.
 
 ## What about PostgreSQL clients?
 

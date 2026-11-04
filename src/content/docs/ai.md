@@ -7,9 +7,15 @@ These docs are built to be machine-readable as well as human-readable. If you're
 
 ## Connect an agent
 
-Open [the handoff](https://app.database.pizza/start) to create or select a database. Existing accounts choose an organization and database; no extra database is created. [Preview the handoff](https://app.database.pizza/start?preview=1) with placeholders. Configure the key locally, not in a prompt. [MCP for agents](/clients/mcp/) documents Claude Code, Cursor, and VS Code, using different client formats.
+Open [app.database.pizza/start](https://app.database.pizza/start) to sign up. Your default workspace is created automatically. Copy the instructions from the workspace empty state and paste them into your coding agent; the agent installs and configures MCP, and you approve its workspace access in the browser. No API key goes into the prompt. [MCP for agents](/clients/mcp/) documents the helper, supported clients, and limits.
 
-MCP keys are organization-owned and bound to one database, not account-wide. New starter keys allow read/write/schema work without `drop_table`. Use read-only access when building is unnecessary. Neither HTTPS nor MCP supports transactions. Prefer these HTTPS surfaces for public access: the PostgreSQL proxy supports TLS in source, but the public endpoint declined TLS negotiation when checked on 2026-11-04.
+Workspace agent connections are organization-scoped, expire after 7 days, and
+are revocable in workspace settings. App code uses separate database-scoped
+`DB_ACCESS` keys. Default agent approval allows read/write/schema changes,
+including row deletion and column/index changes, but not `DROP TABLE` or database
+deletion. Neither HTTPS nor MCP supports transactions. Prefer these HTTPS
+surfaces for public access: the PostgreSQL proxy supports TLS in source, but the
+public endpoint declined TLS negotiation when checked on 2026-11-04.
 
 ## The files
 
@@ -48,7 +54,7 @@ Each page has a **Copy page** button in its title area (next to a **View Markdow
 
 The docs use a fictional organization `acme`, database `production`, and the placeholder key `pz_live_REPLACE_ME`. When you prompt an AI tool:
 
-- **Never paste a real API key** into a prompt, source file, or log. Keys are secrets; substitute the placeholder and swap in the real value only in your actual runtime.
+- **Never paste a real API key** into a prompt, source file, or log. Keys are secrets; substitute the placeholder and swap in the real value only in your actual runtime. For a new workspace, use the agent instructions and browser approval instead of a pasted key.
 - **Give the tool the context it lacks.** An assistant doesn't know your org/db slugs, your schema, or your scopes. Provide them explicitly.
 - **Point at the right page.** For SQL, cite the `raw` URL of the relevant reference page rather than paraphrasing from memory.
 - **Ask for parameterized SQL.** Request `?` or `$1` placeholders instead of string-concatenated values.

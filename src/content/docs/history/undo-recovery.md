@@ -32,7 +32,8 @@ You decide the blast radius. That is the safety-first property: correcting one r
 It is important to be precise about what this feature is and is not. Undo is a **surgical, reviewed convenience**, not a backup system.
 
 - **Not atomic.** Restored statements run one at a time over the normal query surface. There is no transaction wrapping the whole restore, so a failure partway through can leave a partially restored state. Review the generated SQL, and for anything structural, consider running it in stages.
-- **Point selection is not whole-database PITR.** You can select a point in the available history and restore a record or table, but this is SQL reconstruction, not an atomic, transaction-consistent whole-database snapshot restore. It is not a replacement for regular exports. Keep your own backups for disaster recovery — see [Import & export](/guides/import-export/).
+- **Point selection is not whole-database PITR.** You can select a point in the available history and restore a record or table, but this is SQL reconstruction, not an atomic, transaction-consistent whole-database snapshot restore. It is not a replacement for logical backups or independent exports. Keep your own copies for disaster recovery — see [Import & export](/guides/import-export/).
+- **Logical backups are not history rollback.** A backup saved by the console or an approved agent is a checksummed SQL export taken at one moment. Restoring it creates a **new** database. It does not rewind the source, and capture consistency depends on stopping writes first.
 - **Not transactional rollback.** Unlike `ROLLBACK`, which reverts a still-open transaction in memory, undo generates new writes to bring data back to an earlier shape. Those writes themselves are new history.
 - **Bounded by journal retention.** If the journal has aged out the records you need, the earlier state cannot be reconstructed from history. Recoverable history is a moving window, not an infinite archive.
 - **No actor attribution.** Undo restores *values*, not accountability. It does not identify who made the original change.
@@ -47,7 +48,7 @@ AI agents change data fast, and their mistakes are often subtle — an over-broa
 
 - **Inspect before you trust.** When an agent finishes a task, skim the [change history](/history/change-history/) for the tables it touched.
 - **Undo narrowly.** Revert only the records the agent got wrong, rather than throwing away the whole session's work.
-- **Give agents narrow keys.** An agent that only holds `read` and `write` (not `alter_table` or `drop_table`) can't drop a table it should keep. See [API keys & permissions](/clients/api-keys/).
+- **Give agents workspace access, not blanket credentials.** The browser approval records the scopes granted to an agent. Default approval allows data and schema changes (including row deletion), but `DROP TABLE` and database/backup deletion need an extra destructive grant. See [MCP for agents](/clients/mcp/).
 - **Review generated restore SQL** the same way you review the SQL the agent wrote in the first place.
 
 ## Practical guidance
