@@ -5,7 +5,7 @@ description: Design and create a realistic schema with tables, constraints, and 
 
 This page walks through building a small schema on the `acme/production` database from [Connect](/getting-started/connect/). It assumes you have an API key with `read`, `write`, and `alter_table` scopes.
 
-Throughout, remember the key dialect rule: **PizzaSQL uses SQLite-compatible SQL, not PostgreSQL.** Use `INTEGER PRIMARY KEY` instead of `SERIAL`, and `TEXT` instead of `VARCHAR(n)`. Full details live in [SQL reference](/sql-reference/overview/) and [Compatibility](/sql-reference/compatibility/).
+Throughout, remember the key dialect rule: **PizzaSQL uses SQLite-inspired SQL, not PostgreSQL.** Use `INTEGER PRIMARY KEY` instead of `SERIAL`, and `TEXT` instead of `VARCHAR(n)`. Full details live in [SQL reference](/sql-reference/overview/) and [Compatibility](/sql-reference/compatibility/).
 
 ## The model
 
@@ -19,7 +19,7 @@ We'll track users and their invoices:
 ```sql
 CREATE TABLE users (
   id         INTEGER PRIMARY KEY,
-  email      TEXT NOT NULL,
+  email      TEXT NOT NULL UNIQUE,
   name       TEXT NOT NULL,
   plan       TEXT NOT NULL DEFAULT 'free',
   created_at TEXT NOT NULL
@@ -39,15 +39,15 @@ CREATE INDEX idx_invoices_user ON invoices(user_id);
 A few things to notice:
 
 - `INTEGER PRIMARY KEY` gives each row an auto-assigned integer `id` when you omit it.
-- Dynamic defaults are evaluated when the table is created, not for each row. Supply timestamps in the insert with `datetime('now')` instead.
-- The index on `invoices(user_id)` keeps the per-user join fast. See [Indexes](/engine/indexes/).
-- PizzaSQL does not currently enforce `UNIQUE` or foreign keys. Check those invariants in your application. See [Constraints](/sql-reference/constraints/).
+- Constant defaults such as `'free'` are supported; non-constant defaults are rejected with `0A000`. Supply timestamps in the insert with `datetime('now')` instead.
+- The index on `invoices(user_id)` is available to supported lookup paths; inspect actual query behavior rather than assuming every join uses it. See [Indexes](/engine/indexes/).
+- Current source builds enforce `UNIQUE` constraints and unique indexes; a duplicate is `23505`. Older tables with discarded declarations need an explicit unique index. Foreign-key and `CHECK` declarations are rejected with `0A000`; enforce those relationships in your application. See [Constraints](/sql-reference/constraints/).
 
-Run these over HTTP, one statement at a time, or paste them all into a single `/execute` batch. Over the PostgreSQL wire protocol you can send the whole block directly:
+Run these over HTTPS, one statement at a time, or in a non-transactional `/execute` batch. Over a **TLS-enabled** PostgreSQL deployment you can send the whole block directly; the following command fails closed if TLS is unavailable. Use HTTPS on the public service while PostgreSQL TLS is not offered (see [Connect](/getting-started/connect/)).
 
 ```bash
 PGPASSWORD='pz_live_REPLACE_ME' psql \
-  "postgresql://u@db.database.pizza:5432/acme%2Fproduction?sslmode=disable" \
+  "postgresql://u@db.database.pizza:5432/acme%2Fproduction?sslmode=require" \
   -f schema.sql
 ```
 

@@ -5,6 +5,12 @@ description: Feed database.pizza's documentation to AI tools via llms.txt, raw M
 
 These docs are built to be machine-readable as well as human-readable. If you're using an AI assistant, a coding agent, or a CLI tool that fetches context, this page explains how to give it accurate database.pizza knowledge.
 
+## Connect an agent
+
+Open [the handoff](https://app.database.pizza/start) to create or select a database. Existing accounts choose an organization and database; no extra database is created. [Preview the handoff](https://app.database.pizza/start?preview=1) with placeholders. Configure the key locally, not in a prompt. [MCP for agents](/clients/mcp/) documents Claude Code, Cursor, and VS Code, using different client formats.
+
+MCP keys are organization-owned and bound to one database, not account-wide. New starter keys allow read/write/schema work without `drop_table`. Use read-only access when building is unnecessary. Neither HTTPS nor MCP supports transactions. Prefer these HTTPS surfaces for public access: the PostgreSQL proxy supports TLS in source, but the public endpoint declined TLS negotiation when checked on 2026-11-04.
+
 ## The files
 
 ### `/llms.txt`
@@ -49,7 +55,7 @@ The docs use a fictional organization `acme`, database `production`, and the pla
 
 ## The PizzaSQL vs. PostgreSQL distinction
 
-The single most important thing to tell a code-generating tool is this: **PizzaSQL is not PostgreSQL.** It speaks a PostgreSQL-compatible *wire protocol*, but its SQL is SQLite-compatible.
+The single most important thing to tell a code-generating tool is this: **PizzaSQL is not PostgreSQL.** It speaks a PostgreSQL-compatible *wire protocol*, but its SQL is SQLite-inspired, with documented differences from SQLite.
 
 Key consequences:
 
@@ -70,7 +76,7 @@ PizzaSQL uses SQLite-style type affinity and exposes a PostgreSQL-compatible wir
 ```text
 Using https://docs.database.pizza/raw/getting-started/first-schema.md and
 https://docs.database.pizza/raw/sql-reference/compatibility.md as context,
-write a SQLite-compatible schema for my org/db `acme/production` with tables
+write a PizzaSQL-compatible, SQLite-style schema for my org/db `acme/production` with tables
 `users` and `invoices`. Use INTEGER PRIMARY KEY, TEXT, and
 `?` placeholders.
 ```

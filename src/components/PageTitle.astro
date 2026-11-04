@@ -1,8 +1,13 @@
 ---
 import Default from '@astrojs/starlight/components/PageTitle.astro';
+import { relative, resolve, sep } from 'node:path';
 
 const { entry } = Astro.locals.starlightRoute;
-const rawPath = `/raw/${entry.id || 'index'}.md`;
+// Starlight IDs omit nested /index; generated raw files preserve source paths.
+const sourcePath = entry.filePath
+  ? relative(resolve('src/content/docs'), resolve(entry.filePath)).split(sep).join('/')
+  : `${entry.id || 'index'}.md`;
+const rawPath = `/raw/${sourcePath}`;
 ---
 
 <Default><slot /></Default>

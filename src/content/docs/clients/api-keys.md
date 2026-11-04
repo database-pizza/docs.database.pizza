@@ -3,10 +3,13 @@ title: API keys & permissions
 description: How API keys work, what scopes mean, and how to keep them safe.
 ---
 
-Every programmatic connection to database.pizza authenticates with an API key. The same key serves three roles:
+Every programmatic connection to database.pizza authenticates with an API key. Depending on its permission type, a key authenticates:
 
-- The `Authorization: Bearer` token for the [HTTP query API](/clients/http-api/) and [REST API](/clients/rest-api/).
-- The **password** for the [PostgreSQL protocol](/clients/postgresql/).
+- The [MCP endpoint](/clients/mcp/) and [HTTPS query API](/clients/http-api/) with `Authorization: Bearer` (`DB_ACCESS`).
+- The [REST API](/clients/rest-api/) with a Bearer token (`REST_API`, or scoped `DB_ACCESS`).
+- The [partial PostgreSQL wire interface](/clients/postgresql/) with the key as its password (`DB_ACCESS`).
+
+Keys belong to an **organization**, not your entire account. SQL and MCP keys are additionally bound to **one database**. Organization membership controls who can create or revoke them; no MCP tool can switch the key to another database.
 
 Treat it accordingly — it's a password and a bearer token in one.
 
@@ -26,7 +29,7 @@ Keys fall into three permission types:
 
 | Type | Purpose | Bound to a database? |
 | --- | --- | --- |
-| `DB_ACCESS` | Full SQL access over the query API and Postgres protocol, constrained by scopes | Yes (required) |
+| `DB_ACCESS` | SQL over MCP, HTTPS, and the partial PostgreSQL wire interface, constrained by scopes | Yes (required) |
 | `REST_API` | CRUD via the [REST API](/clients/rest-api/), constrained by scopes and per-table method settings | Yes (required) |
 | `PLATFORM` | Reserved for platform-level operations | No |
 
@@ -42,12 +45,12 @@ Scopes constrain what a key can do. A key with no granted scope is denied everyt
 | --- | --- |
 | `read` | `SELECT` |
 | `write` | `INSERT`, `UPDATE`, `DELETE` |
-| `alter_table` | `CREATE TABLE`, `ALTER TABLE` |
+| `alter_table` | `CREATE TABLE`, `ALTER TABLE`, `CREATE INDEX`, `DROP INDEX` |
 | `drop_table` | `DROP TABLE` |
 | `listen:<pattern>` | `LISTEN`, `UNLISTEN`, and SSE channel subscriptions |
 | `notify:<pattern>` | `NOTIFY` |
 
-Statements are validated against these scopes on every request, over both HTTP and the Postgres protocol. A `DROP TABLE` requires the explicit `drop_table` scope; schema changes require `alter_table`.
+Statements are validated against these scopes on every request over MCP, HTTPS, and the PostgreSQL wire interface. A `DROP TABLE` requires the explicit `drop_table` scope; schema changes require `alter_table`.
 
 Channel scopes are separate from the data scopes: `read` does not grant `LISTEN`, and a `listen:orders.*` scope does not grant `SELECT`. Patterns are an exact channel name or a prefix ending in `*`. See [Notifications](/sql-reference/notifications/).
 
@@ -63,10 +66,12 @@ Channel scopes are separate from the data scopes: `read` does not grant `LISTEN`
 ## Creating and revoking keys
 
 1. Open a database in the dashboard and go to **API keys**.
-2. Choose **Create API key**, name it, and select the permission type and scopes.
+2. Choose **Create API key**, name it, and select its scopes. For MCP setup, use **Connect agent** instead: choose Read only or Build and get client-specific instructions.
 3. Copy the key from the confirmation dialog — this is the only time it's shown.
 
-Revoking a key takes effect immediately; any application using it loses access on the next request. Revoke keys you no longer need, and rotate them on any suspicion of exposure.
+Revoking a key denies subsequent authenticated MCP/HTTPS requests. It does not undo writes, cancel an in-flight request, or guarantee termination of an already authenticated PostgreSQL tunnel. Revoke keys you no longer need, and rotate them on suspicion of exposure.
+
+New starter keys grant `read`, `write`, and `alter_table`, not `drop_table`. Build access still permits row deletion and structural changes. Use separate keys per client; create a replacement, update the client, verify it, then revoke the old key. The console never retrieves an existing full key.
 
 ## Security guidance
 

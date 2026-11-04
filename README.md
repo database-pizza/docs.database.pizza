@@ -20,6 +20,7 @@ npm run dev
 ```bash
 npm run check
 npm run build
+npm run test:links
 ```
 
 The public site is configured for `https://docs.database.pizza`.

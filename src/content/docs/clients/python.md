@@ -3,7 +3,7 @@ title: Python
 description: Query database.pizza from Python using psycopg or the HTTP query API.
 ---
 
-Python offers the same two surfaces as every other language: the **PostgreSQL wire protocol** through a driver like `psycopg`, or the **HTTP query API** through `requests` or `httpx`. Use the wire protocol when you need transactions or a connection pool; use HTTP for serverless and scripts.
+For scripts, start with the **HTTPS query API** through `requests` or `httpx`. A tested `psycopg` driver can use the partial PostgreSQL wire interface for optimistic DML transactions over a protected connection. On 2026-11-04 the public PostgreSQL endpoint declined TLS negotiation; use HTTPS until TLS is offered. The wire examples below require a trusted TLS certificate and fail closed. See [Connect](/getting-started/connect/).
 
 ```bash
 export PZ_API_KEY='pz_live_REPLACE_ME'
@@ -25,7 +25,7 @@ with psycopg.connect(
     user="u",                        # ignored; any value
     password=os.environ["PZ_API_KEY"],
     dbname="acme/production",        # slash is part of the name
-    sslmode="disable",               # TLS is declined by the proxy
+    sslmode="verify-full",           # requires TLS and a trusted certificate
 ) as conn:
     with conn.cursor() as cur:
         cur.execute(
@@ -58,7 +58,7 @@ SQLAlchemy can be pointed at the `postgresql+psycopg` dialect using the URI from
 from sqlalchemy import create_engine
 
 engine = create_engine(
-    "postgresql+psycopg://u:pz_live_REPLACE_ME@db.database.pizza:5432/acme%2Fproduction?sslmode=disable"
+    "postgresql+psycopg://u:pz_live_REPLACE_ME@db.database.pizza:5432/acme%2Fproduction?sslmode=verify-full"
 )
 ```
 
@@ -113,7 +113,7 @@ async def main():
 | Transactions | Yes | No |
 | Connection reuse | Yes | Stateless |
 | Serverless / scripts | Needs a socket | Anywhere |
-| Placeholder style | `%s` | `?` or `$1` |
+| Placeholder style | `%s` | `?` with `params` |
 
 Both enforce the same API key scopes.
 
