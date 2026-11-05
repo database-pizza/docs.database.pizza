@@ -20,7 +20,9 @@ A column's affinity is derived from its declared type name using the SQLite rule
 | `BOOLEAN` / `BOOL` | BOOLEAN |
 | anything else (e.g. `NUMERIC`, `DECIMAL`, `DATE`, `DATETIME`, `JSON`) | NUMERIC |
 
-This is substring-based and case-insensitive. `VARCHAR(255)`, `TEXT`, `NCHAR`, and `CLOB` are all TEXT affinity; `INT`, `BIGINT`, `TINYINT`, and `SMALLINT` are all INTEGER affinity. `DATE`, `TIME`, `TIMESTAMP`, `DATETIME`, `JSON`, and `JSONB` are recognised as type names but all fall through to NUMERIC affinity.
+`JSONB` is handled as a native type rather than through affinity.
+
+This is substring-based and case-insensitive. `VARCHAR(255)`, `TEXT`, `NCHAR`, and `CLOB` are all TEXT affinity; `INT`, `BIGINT`, `TINYINT`, and `SMALLINT` are all INTEGER affinity. `DATE`, `TIME`, `TIMESTAMP`, `DATETIME`, and `JSON` fall through to NUMERIC affinity. `JSONB` is a native type and does not use affinity.
 
 ## The types you can declare
 
@@ -32,12 +34,14 @@ This is substring-based and case-insensitive. `VARCHAR(255)`, `TEXT`, `NCHAR`, a
 | `TEXT`, `VARCHAR(n)`, `CHAR(n)`, `CHARACTER`, `CLOB`, `NCHAR`, `NVARCHAR` | TEXT | length ignored |
 | `BLOB` | BLOB | stored as a string in practice |
 | `BOOLEAN`, `BOOL` | BOOLEAN | stored as 1/0 |
+| `JSONB` | native | validated, canonical JSON; OID 3802 over the wire |
+| `TEXT[]`, `INTEGER[]`, `BOOLEAN[]`, `NUMERIC[]`, … | array | one-dimensional only; see below |
 
-There is no `ARRAY`, `JSONB`-specific, `SERIAL`, or `ENUM` type. There are no schemas or user-defined types. `UUID` is accepted as a type name but is stored with **TEXT affinity** — it is a plain text column with no native PostgreSQL UUID semantics.
+There is no `SERIAL`, `ENUM`, or user-defined type. There are no schemas. `UUID` is accepted as a type name but is stored with **TEXT affinity** — it is a plain text column with no native PostgreSQL UUID semantics.
 
-`JSON` and `JSONB` are accepted as column type names but have no native JSON semantics. By SQLite's type-name rules they fall through to NUMERIC affinity (see the table above), so declare `TEXT` when the affinity matters; in practice the engine stores the JSON text you insert and reports `TEXT` (OID 25) over the PostgreSQL wire. Use `json_extract`/`json_set` or the `->`/`->>` operators for queries and updates (see [Functions](/sql-reference/functions/#json)). Values are not validated on write: store valid JSON text and use `json_valid(...)` when the source is untrusted.
+`JSON` and `JSONB` are both accepted as column type names, with different behavior. `JSON` stores text and behaves like a `TEXT` column with the JSON1 functions. `JSONB` is native: values are validated and canonicalized on write (object keys sorted, duplicate keys last-wins, numbers normalized), stored as canonical text, and reported as OID 3802 over the wire. `JSONB` supports `->`, `->>`, `#>`, `#>>`, `@>`, `<@`, `?`, `?|`, `?&`, `||`, `-`, and `#-`, plus functions such as `jsonb_typeof`, `jsonb_set`, and `jsonb_each`. Equality is canonical-text equality, so `1` and `1.0` are equal after normalization. See [Functions](/sql-reference/functions/#jsonb).
 
-Array types and array parameters are not implemented. `id = ANY($1)`, `ANY(...)`, and `ALL(...)` are rejected with SQLSTATE `0A000`; there is no silently-wrong empty result. Rewrite the predicate as `IN (?, ?, ...)` with individual parameters, or as an explicit temporary table. This also avoids the statement-cache churn of building an `IN` list by string concatenation.
+One-dimensional array types are supported for `TEXT[]`, `VARCHAR(n)[]`, `INTEGER[]`, `BIGINT[]`, `SMALLINT[]`, `BOOLEAN[]`, `REAL[]`, `DOUBLE PRECISION[]`, and `NUMERIC[]`. `id = ANY($1)` and `expr <> ALL($1)` work, including text-format array parameters over the PostgreSQL wire. Multidimensional arrays, other element types, and binary array parameters are rejected with `0A000`. See [Statements](/sql-reference/statements/).
 
 ## How values are actually stored
 

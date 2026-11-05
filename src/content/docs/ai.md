@@ -64,8 +64,8 @@ The single most important thing to tell a code-generating tool is this: **PizzaS
 
 Key consequences:
 
-- Use SQLite-style types and DDL: `INTEGER PRIMARY KEY`, `TEXT`, not `SERIAL` or `JSONB`.
-- No schemas, roles, `JSONB`, `ENUM`, or Postgres-only functions. One-dimensional array columns and `= ANY($1)` are supported.
+- Use SQLite-style types and DDL: `INTEGER PRIMARY KEY`, `TEXT`, not `SERIAL`.
+- No schemas, roles, `ENUM`, or Postgres-only functions. One-dimensional array columns, `= ANY($1)`, and native `JSONB` are supported.
 - Type handling follows SQLite affinity rules.
 
 The canonical reference is the [Compatibility](/sql-reference/compatibility/) page. Include this line in your prompts before asking for SQL:

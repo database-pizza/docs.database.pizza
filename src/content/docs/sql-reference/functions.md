@@ -160,7 +160,36 @@ JSON lives in ordinary text. These SQLite JSON1 functions are implemented:
 | `json_array_length(text[, path])` | array length; `0` for a valid non-array |
 | `json_group_array` | aggregate that builds a JSON array |
 
-Malformed input to `json`, `json_extract`, or the mutators fails the statement with `malformed JSON`; `json_valid` is the non-throwing probe. There is no binary `JSONB` representation. The `->` and `->>` operators are available in addition to `json_extract`: `->` returns the member as JSON text (a string keeps its quotes, and JSON `null` stays JSON null), while `->>` returns the SQL value (text, number, `1`/`0` for booleans, or `NULL` for JSON null). Both accept an object label or an array index (negative counts from the end), chain left-to-right, bind tighter than arithmetic and comparison but looser than unary operators, and return `NULL` for a missing path or `NULL` input. Malformed JSON fails the statement. Store documents in a `TEXT` column (or a `JSON`-named column, which stores text with NUMERIC affinity and reports `TEXT` on the wire).
+Malformed input to `json`, `json_extract`, or the mutators fails the statement with `malformed JSON`; `json_valid` is the non-throwing probe. The `->` and `->>` operators are available in addition to `json_extract`: `->` returns the member as JSON text (a string keeps its quotes, and JSON `null` stays JSON null), while `->>` returns the SQL value (text, number, `1`/`0` for booleans, or `NULL` for JSON null). Both accept an object label or an array index (negative counts from the end), chain left-to-right, bind tighter than arithmetic and comparison but looser than unary operators, and return `NULL` for a missing path or `NULL` input. Store documents in a `TEXT` column when you want plain text behavior, or use the native `JSONB` type below.
+
+### JSONB
+
+`JSONB` is a native canonical type (OID 3802). Values are validated on write, object keys are sorted, duplicate keys keep the last value, and numbers are normalized, so equality is independent of key order and formatting. `JSON` and `TEXT` columns keep the JSON1 behavior above.
+
+| Operator | Description |
+| --- | --- |
+| `->` / `->>` | object field or array element as JSONB / SQL text |
+| `#>` / `#>>` | path (`'{a,0,b}'`) as JSONB / SQL text |
+| `@>` / `<@` | containment |
+| `?` / `?\|` / `?&` | key or array-element existence |
+| `\|\|` | shallow object merge or array concatenation |
+| `-` / `#-` | delete a key or element / delete a path |
+
+| Function | Description |
+| --- | --- |
+| `jsonb_typeof(x)` | `null`, `boolean`, `number`, `string`, `array`, or `object` |
+| `jsonb_array_length(x)` | array length |
+| `jsonb_each(x)` / `jsonb_each_text(x)` | expand an object into `(key, value)` rows |
+| `jsonb_array_elements(x)` / `jsonb_array_elements_text(x)` | expand an array into rows |
+| `jsonb_object_keys(x)` | expand object keys into rows |
+| `jsonb_strip_nulls(x)` | remove object members whose value is JSON null |
+| `jsonb_pretty(x)` | indented JSON text |
+| `jsonb_set(x, path, value [, create_missing])` | replace or create a path |
+| `jsonb_insert(x, path, value [, insert_after])` | insert at an array position |
+| `jsonb_build_object(...)` / `jsonb_build_array(...)` | construct a value |
+| `to_jsonb(x)` | convert a SQL value to JSONB |
+
+`jsonb_set`, `jsonb_insert`, and `jsonb_replace` accept PostgreSQL `{a,b}` paths (the value is parsed as JSON) and JSON1 `$` paths (a plain SQL string stays a string). jsonpath functions (`jsonb_path_*`) and GIN indexing are not supported and are rejected with `0A000`.
 
 ### Session state
 

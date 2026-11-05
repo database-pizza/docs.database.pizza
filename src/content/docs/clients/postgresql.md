@@ -112,10 +112,10 @@ Use the placeholders your driver binds natively: `$1`, `$2` for `pg`/pgx and `%s
 
 - `INTEGER PRIMARY KEY`, not `SERIAL`.
 - `TEXT`, not a length-enforced `VARCHAR(n)`.
-- No PostgreSQL schemas, roles, `JSONB`, or `ENUM` types. One-dimensional arrays are supported.
+- No PostgreSQL schemas, roles, or `ENUM` types. One-dimensional arrays and native `JSONB` are supported.
 - `UNIQUE` and unique indexes are enforced in current source builds; duplicates are `23505`. Older tables may need explicit index creation. See [Constraints](/sql-reference/constraints/).
 - `CHECK` is supported (enforced with `23514`; deterministic single-row expressions only). Foreign keys are supported and enforced with `23503` (parent must be PK/unique; `CASCADE`/`SET NULL`/`SET DEFAULT` supported, `DEFERRABLE` rejected). Unsupported non-constant defaults are rejected with `0A000`.
-- Array parameters are accepted in PostgreSQL text format with OIDs `1009`/`1015`/`1007`/`1016`/`1005`/`1000`/`1021`/`1022`/`1231`; `= ANY($1)` and `<> ALL($1)` work. Binary array formats are rejected with `0A000`.
+- Array parameters are accepted in PostgreSQL text format with OIDs `1009`/`1015`/`1007`/`1016`/`1005`/`1000`/`1021`/`1022`/`1231`; `= ANY($1)` and `<> ALL($1)` work. Binary array formats are rejected with `0A000`. `JSONB` parameters accept both text and PostgreSQL binary (`0x01` + JSON) form; binary results are not yet implemented.
 
 ## Transactions, discovery, and quotas
 

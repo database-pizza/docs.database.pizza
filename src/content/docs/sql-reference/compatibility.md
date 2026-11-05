@@ -183,7 +183,7 @@ PizzaSQL accepts many familiar type names but does not implement PostgreSQL's st
 | SQLite date and time functions | Supported | Supported | Different function set |
 | `last_insert_rowid()`, `changes()`, `total_changes()` | Supported; session-local | Supported | Unsupported |
 | PostgreSQL date and time functions | Unsupported | Unsupported | Supported |
-| JSON functions | Supported: TEXT storage, JSON1 scalar functions (including `json_array_length` with one path), `json_group_array`, and `->`/`->>`; no binary `JSONB` | Available with SQLite JSON support | Supported |
+| JSON functions | Supported: JSON1 over `TEXT`/`JSON`, plus native `JSONB` (canonical storage, OID 3802, `->` `->>` `#>` `#>>` `@>` `<@` `?` `?\|` `?&` `\|\|` `-` `#-`, and `jsonb_*` functions); no jsonpath or GIN | Available with SQLite JSON support | Supported |
 | Window functions | Partial; `ROW_NUMBER()` only | Supported | Supported |
 
 ## Transactions

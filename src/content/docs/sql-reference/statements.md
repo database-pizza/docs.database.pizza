@@ -98,6 +98,7 @@ CREATE TABLE [IF NOT EXISTS] table (
 - A bare `NULL` column specifier is accepted as a no-op (columns are nullable by default); `NOT NULL` still applies whenever it appears.
 - `AUTOINCREMENT` is accepted but has no extra behaviour over a plain `INTEGER PRIMARY KEY`.
 - **Array column types** are supported for `TEXT[]`, `VARCHAR(n)[]`, `INTEGER[]`, `BIGINT[]`, `SMALLINT[]`, `BOOLEAN[]`, `REAL[]`, `DOUBLE PRECISION[]`, and `NUMERIC[]`. Values use PostgreSQL array text: `'{a,b}'`, `ARRAY[1,2]`, `'{NULL,"NULL"}'`, and casts such as `::INTEGER[]`. `NULL` and `'{}'` are distinct. Access is 1-based (`arr[1]`; out of range is `NULL`); `array_length(arr, 1)` and a single-FROM `unnest(arr)` are supported. Multidimensional arrays, other element types, binary array parameters, and scalar `unnest` are rejected with `0A000`. `NUMERIC` elements keep their exact text and compare numerically, but unique/index keys use the stored text, so `1.10` and `1.1` are distinct keys.
+- **`JSONB` columns** are validated and canonicalized on write (sorted keys, last duplicate wins, normalized numbers) and report OID 3802 over the wire. `->`, `->>`, `#>`, `#>>`, `@>`, `<@`, `?`, `?|`, `?&`, `||`, `-`, `#-`, and the `jsonb_*` functions are supported; jsonpath (`jsonb_path_*`) and GIN indexes are rejected with `0A000`. `JSON`/`TEXT` columns keep the JSON1 behavior.
 
 ## ALTER TABLE
 
