@@ -26,7 +26,7 @@ Executors for the same database share storage-backed schema and table managers. 
 - Lazily populated row and index caches
 - Row-ID allocation state
 
-The locks protecting these structures are implementation locks, not SQL row locks or user-visible transaction locks. Different databases use separate managers and caches.
+The locks protecting these structures are implementation locks. They are separate from SQL row locks and from the optimistic commit gate. Different databases use separate managers and caches.
 
 ## Connection and executor topology
 
@@ -95,7 +95,7 @@ limits, or the need to handle `40001`.
 ## No MVCC — what that means
 
 - There is no PostgreSQL-style snapshot isolation for long-running reads.
-- There are no row-level locks and no `SELECT ... FOR UPDATE`, `NOWAIT`, or deadlock detection.
+- Row locks are **optimistic**: `SELECT ... FOR UPDATE`/`FOR SHARE` holds a lock and protects the row, but a writer that conflicts with it fails its commit with `40001` instead of blocking. There are no gap or predicate locks.
 - Transaction write and phantom conflicts are detected through observed LSNs and table or predicate generations at commit.
 
 ## Thread safety and the KV layer
@@ -133,21 +133,43 @@ Keep each attempt short, cap the total retry budget, and surface a permanent fai
 
 ## Row locks
 
-There are no row locks. `SELECT ... FOR UPDATE`, `FOR SHARE`, `FOR NO KEY UPDATE`, `NOWAIT`, and `SKIP LOCKED` are rejected with SQLSTATE `0A000` instead of being accepted without locking. Do not build a queue or claim loop that depends on `FOR UPDATE SKIP LOCKED`.
+`SELECT ... FOR UPDATE` and `FOR SHARE` are supported on a single base table, with `NOWAIT` (SQLSTATE `55P03`) and `SKIP LOCKED`. A locking read acquires a per-row lock, re-reads the row after acquiring it, and re-checks the `WHERE` predicate. Locks are held until `COMMIT`/`ROLLBACK`; an autocommit locking SELECT releases at statement end. Deadlocks between blocking lock waiters return `40P01`.
+
+The lock is **optimistic on the writer side**. PizzaSQL does not make a conflicting `UPDATE`/`DELETE` wait: a commit that writes a row locked by another transaction fails with `40001`, and the application retries. The lock holder itself is protected, so another worker cannot commit over its row. Two consequences follow:
+
+- There are no gap or predicate locks. An `INSERT` that would match a locked range is not blocked, and a locking read does not prevent phantoms.
+- Locks are in-process. One PizzaSQL process per database is the supported deployment shape.
+
+This is enough for a queue claim loop:
+
+```sql
+BEGIN;
+SELECT id FROM jobs
+ WHERE status = 'pending'
+ ORDER BY id
+ LIMIT 1
+ FOR UPDATE SKIP LOCKED;
+UPDATE jobs SET status = 'processing' WHERE id = ...;
+COMMIT;
+```
+
+Keep the claim transaction short. A worker that holds a lock open while calling an external service delays other workers and can force writer retries. `ROLLBACK TO SAVEPOINT` does not release locks acquired after the savepoint; they remain held until the transaction ends (stricter than PostgreSQL).
 
 ### Safe claim patterns
+
+The following patterns remain useful when row locks are unavailable or when the workload must avoid holding a lock:
 
 - **Atomic compare-and-set:** `UPDATE jobs SET owner = ?, state = 'claimed' WHERE id = ? AND state = 'pending'`; a `rows_affected` of `1` means this worker owns the job, `0` means another worker won. This is a single statement, so it is atomic without row locks.
 - **Unique-index arbitration:** insert a row into a `UNIQUE` table and treat `23505` as "already claimed". Pair it with `ON CONFLICT DO NOTHING` to make the probe non-throwing.
 - **Optimistic version column:** read `version`, write `WHERE id = ? AND version = ?`, and retry on `rows_affected = 0`. Do not hold a transaction open across user think-time.
 - **Leases:** store `lease_until`; a reclaim is an `UPDATE ... WHERE lease_until < now()`, which is again a single atomic statement. Clock skew makes this approximate; prefer a server-generated timestamp if it matters.
 
-If a workflow genuinely needs to hold a row while calling an external service, redesign it as a state machine with short transactions rather than waiting for row locks.
+If a workflow genuinely needs to hold a row while calling an external service, prefer a state machine with short transactions; a `FOR UPDATE` lock across that call is possible, but it blocks other claimers and can cause writer retries.
 
 ## Practical guidance
 
 - Keep transactions short to reduce conflicts and the amount of work discarded by a retry.
 - Retry SQLSTATE `40001` with bounded backoff.
-- Do not expect PostgreSQL isolation levels, row locks, or MVCC snapshots.
+- Do not expect PostgreSQL isolation levels, MVCC snapshots, or gap/predicate locking.
 - Assume the first access after a cold start or a fresh connection is slower (cold caches); warm caches are fast.
 - Treat each database as a separate storage and cache domain.

@@ -46,7 +46,7 @@ COMMIT;                -- keeps the first insert
 - **DML is staged until commit.** An open transaction's data writes are visible to that session through its overlay and are not published as independent storage operations.
 - **Conflicts are optimistic.** Another connection can continue working while a transaction is open. A transaction that observed stale rows or table generations can fail at commit and should be retried.
 - **DDL is transactional inside an explicit transaction.** `CREATE TABLE`, `DROP TABLE`, `ALTER TABLE`, `CREATE INDEX`, and `DROP INDEX` are staged in the session overlay: the session sees them immediately, other sessions do not see them until `COMMIT`, and `ROLLBACK` (including `ROLLBACK TO SAVEPOINT`) reverts them. Autocommit DDL still applies immediately. A transactional DDL commit publishes catalog and rows in one compare-batch; a `DROP`/`RENAME` of a very large table above the batch limit (65,535 operations or 64 MiB) fails early with a clear error.
-- **This is not MVCC.** PizzaSQL does not provide PostgreSQL snapshots, row locks, or the full PostgreSQL isolation-level model.
+- **This is not MVCC.** PizzaSQL does not provide PostgreSQL snapshots or the full PostgreSQL isolation-level model. `FOR UPDATE`/`FOR SHARE` row locks are available on a single base table, but writers that conflict with a held lock fail their commit with `40001` rather than waiting; there are no gap or predicate locks.
 
 ## Failed transactions over the wire
 
