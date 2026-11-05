@@ -10,7 +10,7 @@ Constraints in PizzaSQL fall into two camps: the ones that are actually implemen
 ### PRIMARY KEY
 
 - A single column can be `PRIMARY KEY`. A table-level `PRIMARY KEY (col)` is also accepted.
-- A composite primary key (`PRIMARY KEY (a, b)`) is rejected at `CREATE TABLE` with SQLSTATE `0A000`; it is never silently reduced to the first column.
+- A table-level composite `PRIMARY KEY (a, b)` is supported. Key columns are implicitly `NOT NULL`, so a missing or NULL component fails with `23502` instead of auto-assigning a rowid. The key is encoded in column order and used by `INSERT`, full-key `SELECT`/`UPDATE`/`DELETE`, `ON CONFLICT (a, b)`, and duplicate detection (`23505`); a predicate on only the first key column is a scan, not a point lookup. A composite key gets a hidden rowid rather than an `INTEGER PRIMARY KEY` alias. `ALTER TABLE ... ADD COLUMN ... PRIMARY KEY`, a generated column in a primary key, and assigning a key column in `ON CONFLICT ... DO UPDATE` are rejected with `0A000`.
 - An **`INTEGER PRIMARY KEY`** column becomes an alias for the implicit rowid. Inserting without a value auto-assigns the next rowid; inserting with a value sets the rowid and advances the counter past it.
 - A **non-integer primary key** (e.g. `TEXT PRIMARY KEY`) is a normal column with a separate hidden rowid counter.
 - The primary key and unique indexes drive **duplicate detection** on `INSERT`, and therefore `INSERT OR REPLACE`/`OR IGNORE` and `ON CONFLICT DO NOTHING`/`DO UPDATE`. `ON CONFLICT` targets a primary key or unique-index column list.

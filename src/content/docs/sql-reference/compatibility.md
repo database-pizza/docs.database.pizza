@@ -128,7 +128,7 @@ Unsupported syntax normally returns an error. The items above are called out sep
 | Views | Partial; not persisted across executor restarts | Persistent | Persistent |
 | Triggers | Unsupported | Supported | Supported |
 | Single-column primary keys | Supported | Supported | Supported |
-| Composite primary keys | Rejected with `0A000` | Supported | Supported |
+| Composite primary keys | Supported; key columns are `NOT NULL`, encoding is column-ordered, and assigning a key column in `ON CONFLICT DO UPDATE` is rejected | Supported | Supported |
 | `NOT NULL` | Supported on final insert/update rows; `23502` on current builds | Supported | Supported |
 | `UNIQUE` constraints | Enforced on core write paths; cached column ownership / expression validation, with legacy-table and transaction caveats | Supported | Supported |
 | Unique indexes | Enforced on core write paths; derived ownership cache for columns, scans for expressions | Supported | Supported |
@@ -280,7 +280,7 @@ There is no committed automated Vikunja integration test yet, so this is a manua
 
 1. Use explicit `INNER`, `LEFT`, and `CROSS` joins with `ON` conditions.
 2. Enforce checks and referential integrity in the application. Uniqueness is enforced on the core write paths, but keep application-level checks for anything with stricter concurrency or DDL needs.
-3. Use a single-column primary key.
+3. Prefer a single-column primary key when you have a choice; composite keys are supported with the limits listed above.
 4. Avoid `AUTOINCREMENT` for semantic behavior. A `DEFAULT CURRENT_TIMESTAMP` or `datetime('now')` is evaluated once per statement, not per row.
 5. Use `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX`; verify other functions against the [function reference](/sql-reference/functions/).
 6. Test your exact driver and migration tool before deploying an application.
