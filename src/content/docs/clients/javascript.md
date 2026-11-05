@@ -122,7 +122,7 @@ It is technically possible to call the HTTP API from a browser, but that means s
 
 ## ORMs
 
-Because the wire protocol is only partially PostgreSQL-compatible, ORMs and migration tools are **not guaranteed** to work and are not currently verified end to end. An ORM that issues PostgreSQL-specific introspection or SQL will fail. If you need one, keep its SQL and DDL to the SQLite-compatible subset, expect to adjust migrations away from Postgres-specific types (`SERIAL`, `TEXT[]`, `JSONB`), and **test your exact ORM and migration path before deploying** — see [Compatibility](/sql-reference/compatibility/) and [PostgreSQL protocol](/internals/postgres-protocol/).
+Because the wire protocol is only partially PostgreSQL-compatible, ORMs and migration tools are **not guaranteed** to work and are not currently verified end to end. An ORM that issues PostgreSQL-specific introspection or SQL will fail. If you need one, keep its SQL and DDL to the SQLite-compatible subset, expect to adjust migrations away from Postgres-specific types (`SERIAL`, `ENUM`), and **test your exact ORM and migration path before deploying** — see [Compatibility](/sql-reference/compatibility/) and [PostgreSQL protocol](/internals/postgres-protocol/).
 
 ## Next
 
