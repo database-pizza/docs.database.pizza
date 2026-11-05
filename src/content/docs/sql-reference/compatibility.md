@@ -53,7 +53,7 @@ Use the engine identity and capability document to identify the running build.
 | Dimension | PizzaSQL |
 | --- | --- |
 | SQL dialect | SQLite-inspired, with documented differences |
-| Wire protocol | Partial PostgreSQL v3 simple and extended query protocols; Describe returns compatibility NoData, while binary results and bounded portals are explicitly rejected |
+| Wire protocol | Partial PostgreSQL v3 simple and extended query protocols; Describe returns compatibility NoData, binary results are supported for the OIDs in `/capabilities`, and bounded portals are explicitly rejected |
 | Type system | Dynamic values with partial SQLite-style affinity |
 | Storage | Versioned binary rows in PizzaKV |
 | Transactions | Optimistic compare-batch DML transactions; DDL is non-transactional |
@@ -209,7 +209,7 @@ PostgreSQL wire compatibility allows some PostgreSQL clients to connect. It does
 | Prepared statements | Partial; parameters are rewritten as SQL literals | Not applicable | Native |
 | Text parameters and results | Supported | Not applicable | Supported |
 | Binary parameters | Partial; limited boolean and integer support | Not applicable | Supported |
-| Binary results | Unsupported | Not applicable | Supported |
+| Binary results | Supported for bool, integers, floats, text, bytea, jsonb, and one-dimensional arrays; other OIDs and unrepresentable values fail cleanly | Not applicable | Supported |
 | Correct result type OIDs | Partial; single-table direct column projections report typed OIDs, expressions and joins report `TEXT` | Not applicable | Supported |
 | PostgreSQL TLS | Supported when the managed proxy is configured with a certificate; sslmode contract below | Not applicable | Supported |
 | PostgreSQL SCRAM and MD5 authentication | Unsupported | Not applicable | Supported |
