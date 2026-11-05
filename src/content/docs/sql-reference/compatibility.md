@@ -67,7 +67,7 @@ Do not rely on the following behavior yet:
 - Composite primary keys (`PRIMARY KEY (a, b)`) are supported; key columns are implicitly `NOT NULL` and a missing component returns `23502`.
 - Column defaults accept constants and the clock whitelist (`CURRENT_TIMESTAMP`, `CURRENT_DATE`, `CURRENT_TIME`, `datetime('now')`, `date('now')`, `time('now')`), evaluated once per statement at write time. Other non-constant defaults are rejected with `0A000`.
 - One-dimensional arrays are supported for `TEXT[]`, `VARCHAR(n)[]`, `INTEGER[]`, `BIGINT[]`, `SMALLINT[]`, `BOOLEAN[]`, `REAL[]`, `DOUBLE PRECISION[]`, and `NUMERIC[]`. `expr = ANY(array)`, `expr <> ALL(array)`, and `@>`/`<@` containment follow three-valued logic; SRFs accept `AS alias(col, ...)`. Multidimensional arrays, other element types, and scalar `unnest` are rejected with `0A000`. Array parameters are accepted in text form and in PostgreSQL binary form for the supported element types; see [Statements](/sql-reference/statements/).
-- `SELECT ... FOR UPDATE` and `NOWAIT`/`SKIP LOCKED` are rejected with `0A000`; transactions are optimistic and have no row locks.
+- `SELECT ... FOR UPDATE`/`FOR SHARE` and `NOWAIT`/`SKIP LOCKED` are supported on one base table. Locks protect the holder, but a conflicting writer gets `40001` instead of blocking; there are no gap or predicate locks.
 - `RIGHT JOIN`, `FULL JOIN`, `JOIN ... USING`, and `NATURAL JOIN` may parse but do not execute correctly.
 - DDL executed inside an explicit transaction is staged and reverted by `ROLLBACK`; autocommit DDL applies immediately.
 - Result column type metadata is reported for direct projections and common expressions (aggregates, comparisons, literals, CASTs); derived tables and CTEs still fall back to `TEXT`.

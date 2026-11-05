@@ -119,7 +119,7 @@ Use the placeholders your driver binds natively: `$1`, `$2` for `pg`/pgx and `%s
 
 ## Transactions, discovery, and quotas
 
-The wire interface supports optimistic `BEGIN`/`COMMIT`/`ROLLBACK` and savepoints for DML and DDL; DDL is staged and published at `COMMIT`. This is not PostgreSQL MVCC or row locking; read [Transactions](/engine/transactions/). HTTP and MCP reject transaction statements.
+The wire interface supports optimistic `BEGIN`/`COMMIT`/`ROLLBACK` and savepoints for DML and DDL; DDL is staged and published at `COMMIT`. `SELECT ... FOR UPDATE`/`FOR SHARE` with `NOWAIT` and `SKIP LOCKED` provide optimistic row locks: a conflicting writer gets `40001` instead of blocking, and there are no gap locks. This is not PostgreSQL MVCC. Read [Transactions](/engine/transactions/) and [Concurrency](/engine/concurrency/). HTTP and MCP reject transaction statements.
 
 Discover the engine using `pizzasql_version()` or the `pizzasql.version` startup parameter. The generic `server_version` is a protocol-compatibility string, not your engine build. The console's engine information exposes version/capability documents.
 
