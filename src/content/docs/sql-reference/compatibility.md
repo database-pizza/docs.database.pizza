@@ -70,7 +70,7 @@ Do not rely on the following behavior yet:
 - `SELECT ... FOR UPDATE`/`FOR SHARE` and `NOWAIT`/`SKIP LOCKED` are supported on one base table. Locks protect the holder, but a conflicting writer gets `40001` instead of blocking; there are no gap or predicate locks.
 - `RIGHT JOIN`, `FULL JOIN`, `JOIN ... USING`, and `NATURAL JOIN` may parse but do not execute correctly.
 - DDL executed inside an explicit transaction is staged and reverted by `ROLLBACK`; autocommit DDL applies immediately.
-- Result column type metadata is reported for direct projections and common expressions (aggregates, comparisons, literals, CASTs); derived tables and CTEs still fall back to `TEXT`.
+- Result column type metadata is reported for direct projections, common expressions (aggregates, comparisons, literals, CASTs), and derived tables, CTEs, and views, including array and jsonb types.
 
 Unsupported syntax normally returns an error. The items above are called out separately because accepting syntax without enforcing its semantics can cause incorrect application behavior.
 

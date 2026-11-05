@@ -58,6 +58,7 @@ INSERT INTO table ... RETURNING expr, ...;
 ```
 
 - Omitting the column list targets all columns in declaration order.
+- `INSERT INTO t (col) DEFAULT VALUES` is accepted, but the column list is ignored: every column receives its default. SQLite rejects this form with one column specified, so avoid it; use `INSERT INTO t DEFAULT VALUES` when all defaults are intended.
 - `INSERT ... SELECT` bulk-inserts the materialized result.
 - **Conflict handling** applies to the primary key and to unique indexes:
   - `INSERT OR IGNORE` silently skips rows that would violate a primary key or unique index.
