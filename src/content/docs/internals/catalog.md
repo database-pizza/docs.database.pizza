@@ -41,7 +41,7 @@ This means concurrent DDL and DML from different connections eventually converge
 
 The catalog is deliberately minimal:
 
-- It stores `CHECK` constraint expressions as SQL text and renders them into `sqlite_master`/`sqlite_schema` table SQL; `pg_constraint` and `information_schema.check_constraints` are not emulated. `FOREIGN KEY` declarations are rejected at `CREATE TABLE` with SQLSTATE `0A000`. `UNIQUE` constraints are materialized into unique index definitions (see [Constraints](/sql-reference/constraints/)).
+- It stores `CHECK` expressions and `FOREIGN KEY` declarations as SQL text and renders them into `sqlite_master`/`sqlite_schema` table SQL; `pg_constraint`, `information_schema.check_constraints`, and `PRAGMA foreign_key_list` are not emulated. `UNIQUE` constraints are materialized into unique index definitions (see [Constraints](/sql-reference/constraints/)).
 - It does not store index definitions (those live in the `SchemaManager`/storage, not the analyzer catalog).
 - It does not store statistics, histograms, or anything a cost-based planner would use — there is no planner.
 

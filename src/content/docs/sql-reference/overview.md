@@ -65,7 +65,7 @@ A second group of features *parses* but has no effect or is only partially imple
 
 - `RIGHT JOIN` and `FULL [OUTER] JOIN` parse but return an empty result — they are not executed. Use `LEFT JOIN` and reorder.
 - `NATURAL JOIN` and `USING (cols)` parse but the condition is ignored.
-- `CHECK` constraints are accepted and enforced with SQLSTATE `23514` (NULL passes; deterministic single-row expressions only). `FOREIGN KEY` is **rejected at DDL** with `0A000`. `UNIQUE` constraints and unique indexes are enforced (see [Constraints](/sql-reference/constraints/)).
+- `CHECK` constraints are accepted and enforced with SQLSTATE `23514` (NULL passes; deterministic single-row expressions only). `FOREIGN KEY` is accepted and enforced immediately with `23503` (parent must be PK/unique, `MATCH SIMPLE`, no cascades). `UNIQUE` constraints and unique indexes are enforced (see [Constraints](/sql-reference/constraints/)).
 - `AUTOINCREMENT` parses but has **no behaviour** beyond ordinary `INTEGER PRIMARY KEY` rowid generation.
 - `LIKE ... ESCAPE 'x'` — the `ESCAPE` clause is parsed and ignored.
 

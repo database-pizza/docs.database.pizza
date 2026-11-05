@@ -3,7 +3,7 @@ title: Constraints
 description: What PRIMARY KEY, NOT NULL, DEFAULT, UNIQUE, CHECK, and FOREIGN KEY actually do in PizzaSQL — and which ones are rejected.
 ---
 
-Constraints in PizzaSQL fall into two camps: the ones that are actually implemented, and the ones that merely parse. This page is deliberately blunt about the difference, because silently assuming a `FOREIGN KEY` constraint is enforced will corrupt data. `UNIQUE` and `CHECK` are enforced on the core write paths, with caveats described below.
+Constraints in PizzaSQL fall into two camps: the ones that are actually implemented, and the ones that merely parse. This page is deliberately blunt about the difference, because silently assuming a constraint is enforced will corrupt data. `UNIQUE`, `CHECK`, and `FOREIGN KEY` are enforced on the core write paths, with caveats described below.
 
 ## The enforced constraints
 
@@ -67,10 +67,10 @@ Do not assume an existing table's uniqueness is enforced just because the engine
 
 Predicates are restricted to deterministic, subquery-free expressions over unqualified columns of the same row. Subqueries, aggregates, window functions, qualified references, and non-deterministic functions are rejected with `0A000`, as is an unknown column. Adding a `CHECK` to a populated table validates the existing rows (against declared defaults) and rejects the DDL if any row violates it. The constraint appears in `sqlite_master`/`sqlite_schema` table SQL; `pg_constraint` and `information_schema.check_constraints` are not emulated.
 
-`FOREIGN KEY ... REFERENCES ...` is still **rejected at DDL** with SQLSTATE `0A000`, including inline `REFERENCES`, table-level `FOREIGN KEY`, named constraints, and `ON DELETE`/`ON UPDATE` actions. Enforce referential integrity in the application; cascades are not implemented.
+`FOREIGN KEY ... REFERENCES ...` is supported inline and table-level, including composite keys, named constraints, and self-references, and is **enforced immediately** with SQLSTATE `23503` on child `INSERT`/`UPDATE` and parent `DELETE`/key `UPDATE`. The referenced parent columns must be the parent's `PRIMARY KEY` or covered by a `UNIQUE` index; otherwise the DDL is rejected. A composite key with any `NULL` component is not enforced (MATCH SIMPLE). `ON DELETE`/`ON UPDATE` `CASCADE`, `SET NULL`, `SET DEFAULT`, and `DEFERRABLE` are rejected with `0A000`; `NO ACTION` and `RESTRICT` are accepted and enforced immediately. Enforcement is always on: `PRAGMA foreign_keys` reports `1` and `OFF` is rejected. `ALTER TABLE ... ADD COLUMN ... REFERENCES` is rejected, and `DROP`/`RENAME` of a participating column or table is rejected. `PRAGMA foreign_key_list` and `pg_constraint` are not emulated.
 
 ## Why this matters for migrations
 
-SQLite- and PostgreSQL-flavoured schemas often lean on `UNIQUE`, `CHECK`, and `FOREIGN KEY` for integrity. `UNIQUE` imports into enforced unique indexes and `CHECK` is now enforced, but `FOREIGN KEY` is rejected. Rewrite foreign-key declarations and add application-level checks for referential integrity before pointing a migrator at PizzaSQL.
+SQLite- and PostgreSQL-flavoured schemas often lean on `UNIQUE`, `CHECK`, and `FOREIGN KEY` for integrity. All three are now enforced on the core write paths, with the caveats above (no cascades, parent must be unique, immediate checks). The SQLite import path still skips `CHECK` and `FOREIGN KEY` clauses; recreate them after importing a `.db` file.
 
 See [Compatibility](/sql-reference/compatibility/) for the wider gap list, and [Indexes](/engine/indexes/) for how `CREATE INDEX`/`UNIQUE INDEX` actually behave at the storage layer.
