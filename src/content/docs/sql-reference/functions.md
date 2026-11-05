@@ -58,6 +58,18 @@ Used in `SELECT` with or without `GROUP BY`, and in `HAVING`.
 | `random()` | random 64-bit integer |
 | `percent_diff(a, b)` | percentage difference between two values |
 
+### Arrays
+
+| Function | Description |
+| --- | --- |
+| `array_length(arr, dim)` | Length of a dimension (`1` for a one-dimensional array); `NULL` when the array is empty or the dimension does not exist |
+| `unnest(arr)` | Expand an array into rows; supported as the only `FROM` item |
+| `arr[n]` | 1-based element access; out-of-range and `NULL` arrays return `NULL` |
+
+One-dimensional arrays are supported for text, integer, boolean, real, and numeric
+element types. See [Statements](/sql-reference/statements/) for array literals,
+parameters, and `ANY`/`ALL` predicates.
+
 ### JSON
 
 PizzaSQL implements a JSON1-compatible function subset. JSON values are stored
