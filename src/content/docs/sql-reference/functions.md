@@ -65,10 +65,12 @@ Used in `SELECT` with or without `GROUP BY`, and in `HAVING`.
 | `array_length(arr, dim)` | Length of a dimension (`1` for a one-dimensional array); `NULL` when the array is empty or the dimension does not exist |
 | `unnest(arr)` | Expand an array into rows; supported as the only `FROM` item |
 | `arr[n]` | 1-based element access; out-of-range and `NULL` arrays return `NULL` |
+| `arr @> arr` / `arr <@ arr` | containment; each element on the right must match some element on the left |
+| `unnest(arr) AS t(col)` | expand an array into rows with a column alias list |
 
 One-dimensional arrays are supported for text, integer, boolean, real, and numeric
 element types. See [Statements](/sql-reference/statements/) for array literals,
-parameters, and `ANY`/`ALL` predicates.
+parameters, `ANY`/`ALL` predicates, and containment.
 
 ### JSON
 

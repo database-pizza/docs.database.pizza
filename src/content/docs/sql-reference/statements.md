@@ -25,7 +25,8 @@ LIMIT n [OFFSET m];
 - **Set operations**: `UNION`, `UNION ALL`, `INTERSECT`, and `EXCEPT` are supported with standard precedence (`INTERSECT` binds tighter than `UNION`/`EXCEPT`). A compound query's `ORDER BY`/`LIMIT`/`OFFSET` apply to the combined result.
 - **Subqueries** are supported in `FROM` (derived tables require an alias), as scalar expressions, in `IN (SELECT ...)`, and in `EXISTS (SELECT ...)`, including correlated subqueries.
 - **Row-locking clauses are rejected.** `FOR UPDATE`, `FOR SHARE`, `FOR NO KEY UPDATE`, and the `NOWAIT`/`SKIP LOCKED` variants fail with SQLSTATE `0A000`. There are no row locks; use the optimistic transaction model and retry `40001` (see [Concurrency](/engine/concurrency/)).
-- **Array predicates** support `expr = ANY(array)` and `expr <> ALL(array)` with SQL three-valued logic, including bound parameters (`= ANY($1)`). Array literals (`'{a,b}'`, `ARRAY[1,2]`) and 1-based subscripts (`arr[1]`) are supported. Multidimensional arrays and scalar `unnest` are rejected with `0A000`; see [CREATE TABLE](#create-table) and [Functions](/sql-reference/functions/).
+- **Array predicates** support `expr = ANY(array)`, `expr <> ALL(array)`, and containment (`arr @> arr`, `arr <@ arr`) with SQL three-valued logic, including bound parameters (`= ANY($1)`). Array literals (`'{a,b}'`, `ARRAY[1,2]`) and 1-based subscripts (`arr[1]`) are supported. Multidimensional arrays and scalar `unnest` are rejected with `0A000`; see [CREATE TABLE](#create-table) and [Functions](/sql-reference/functions/).
+- **Set-returning functions** in `FROM` accept a column alias list: `unnest(arr) AS t(value)`, `jsonb_each(doc) AS t(key, value)`. A list with the wrong arity fails with `42P10`.
 
 ### Joins
 
