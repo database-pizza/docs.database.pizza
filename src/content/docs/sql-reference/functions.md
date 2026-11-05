@@ -148,7 +148,7 @@ JSON lives in ordinary text. These SQLite JSON1 functions are implemented:
 | `json_array_length(text[, path])` | array length; `0` for a valid non-array |
 | `json_group_array` | aggregate that builds a JSON array |
 
-Malformed input to `json`, `json_extract`, or the mutators fails the statement with `malformed JSON`; `json_valid` is the non-throwing probe. There is no binary `JSONB` representation and no `->`/`->>` operator surface; use `json_extract`. Store documents in a `TEXT` column (or a `JSON`-named column, which stores text with NUMERIC affinity and reports `TEXT` on the wire).
+Malformed input to `json`, `json_extract`, or the mutators fails the statement with `malformed JSON`; `json_valid` is the non-throwing probe. There is no binary `JSONB` representation. The `->` and `->>` operators are available in addition to `json_extract`: `->` returns the member as JSON text (a string keeps its quotes, and JSON `null` stays JSON null), while `->>` returns the SQL value (text, number, `1`/`0` for booleans, or `NULL` for JSON null). Both accept an object label or an array index (negative counts from the end), chain left-to-right, bind tighter than arithmetic and comparison but looser than unary operators, and return `NULL` for a missing path or `NULL` input. Malformed JSON fails the statement. Store documents in a `TEXT` column (or a `JSON`-named column, which stores text with NUMERIC affinity and reports `TEXT` on the wire).
 
 ### Session state
 
