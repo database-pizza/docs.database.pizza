@@ -107,11 +107,11 @@ ALTER TABLE table RENAME TO new_name;
 ALTER TABLE table RENAME COLUMN old TO new;
 ```
 
-- `ADD COLUMN` appends schema metadata only. **Existing rows are not rewritten or backfilled**: they read `NULL` for the new column even when it declares `NOT NULL` or a `DEFAULT`. The declared default applies only to later `INSERT`s that omit the column. If you need a value on existing rows, run an explicit `UPDATE`.
+- `ADD COLUMN` with a constant `DEFAULT` **rewrites existing rows** so they read the default; `ADD COLUMN` without a default stays metadata-only and existing rows read `NULL`. The rewrite holds the table gate for the duration, so its cost is proportional to table size. `NOT NULL` without a default is rejected on a non-empty table with `23502`, and a `UNIQUE` column is validated during the same operation (`23505` on duplicates).
 - `ADD COLUMN IF NOT EXISTS column ...` is idempotent and is the supported shape for boot-time migrations. The check and schema append are serialized within one engine process, so concurrent runners on the same process do not duplicate the column. Separate engine processes do not coordinate; run schema migrations from a single runner.
 - `DROP COLUMN` rewrites **every remaining row** to remove the field, so its cost is proportional to table size and it holds the table gate for the duration. It also leaves index metadata that references the dropped column untouched; drop those indexes first or recreate them afterwards. The primary-key column cannot be dropped.
-- `RENAME COLUMN` rewrites every row key and does not update index metadata, expression indexes, views, or generated-column SQL that mention the old name. Drop and recreate affected indexes after a rename. `RENAME TO` is schema-only.
-- `ALTER TABLE ADD COLUMN ... DEFAULT expr` follows the same constant-only rule as `CREATE TABLE`: a non-constant default is rejected with `0A000`, and even a constant default does not backfill existing rows.
+- `RENAME COLUMN` rewrites every row key and rewrites the stored definitions of every plain-column index on the table (single, composite, unique) in one schema update, so `ON CONFLICT`, unique enforcement, and `index_info`/`sqlite_master` follow the new name. Index names are unchanged. A rename that an **expression index** depends on is rejected with `0A000` instead of silently leaving the expression stale: drop the index, rename the column, then recreate it. Views and generated-column SQL are still not rewritten. `RENAME TO` is schema-only.
+- `ALTER TABLE ADD COLUMN ... DEFAULT expr` follows the same constant-only rule as `CREATE TABLE`: a non-constant default is rejected with `0A000`. A constant default backfills existing rows as described above.
 - DDL is not transactional and is not rolled back by `ROLLBACK`; a failed multi-step migration must be repaired explicitly.
 
 ## CREATE / DROP INDEX and VIEW

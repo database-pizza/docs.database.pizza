@@ -121,7 +121,7 @@ Unsupported syntax normally returns an error. The items above are called out sep
 | --- | --- | --- | --- |
 | `CREATE TABLE` and `DROP TABLE` | Supported | Supported | Supported |
 | `CREATE TABLE IF NOT EXISTS` | Supported | Supported | Supported |
-| `ALTER TABLE ADD/DROP/RENAME` | Partial; no backfill on ADD, DROP rewrites rows, RENAME leaves index metadata stale | Partial | Supported |
+| `ALTER TABLE ADD/DROP/RENAME` | Partial; ADD with a constant default backfills rows, DROP rewrites rows, RENAME rewrites plain-column index metadata and rejects renames an expression index depends on | Partial | Supported |
 | Altering column type, default, or nullability | Unsupported | Limited | Supported |
 | `CREATE INDEX` and `DROP INDEX` | Partial; indexes are rebuilt from stored rows | Supported | Supported |
 | `CREATE INDEX IF NOT EXISTS` | Supported in current source; deployed versions may differ | Supported | Supported |
@@ -157,7 +157,7 @@ PizzaSQL accepts many familiar type names but does not implement PostgreSQL's st
 | Strict PostgreSQL types | Unsupported | Unsupported | Supported |
 | `NUMERIC(p,s)` precision enforcement | Unsupported | Unsupported | Supported |
 | Native date and time types | Unsupported; values remain dynamically typed | Unsupported | Supported |
-| JSON values and functions | Supported as text plus the JSON1 function set; no `JSONB` type or `->`/`->>` operators | Available with SQLite JSON support | Supported with `JSON` and `JSONB` |
+| JSON values and functions | Supported as text plus the JSON1 function set and the `->`/`->>` operators; no binary `JSONB` | Available with SQLite JSON support | Supported with `JSON` and `JSONB` |
 | Arrays, UUIDs, enums, and intervals | Partial; `UUID` is accepted as a text alias with no native PostgreSQL UUID semantics | Unsupported as native types | Supported |
 | `CAST` to integer, real, and text | Supported | Supported | Supported |
 | Other `CAST` targets | Partial; many targets are no-ops | Affinity based | Strictly typed |
@@ -165,7 +165,7 @@ PizzaSQL accepts many familiar type names but does not implement PostgreSQL's st
 | SQL three-valued NULL logic | Supported | Supported | Supported |
 | `LIKE` | Supported; case-insensitive | Case-insensitive by default | Case-sensitive; `ILIKE` is separate |
 | Collations | Unsupported | Supported | Supported |
-| Bitwise, regular-expression, and JSON operators | Unsupported | Partial | Supported |
+| Bitwise, regular-expression, and JSON operators | Partial; `->` and `->>` are supported, bitwise and regex are not | Partial | Supported |
 
 ## Functions
 
@@ -183,7 +183,7 @@ PizzaSQL accepts many familiar type names but does not implement PostgreSQL's st
 | SQLite date and time functions | Supported | Supported | Different function set |
 | `last_insert_rowid()`, `changes()`, `total_changes()` | Supported; session-local | Supported | Unsupported |
 | PostgreSQL date and time functions | Unsupported | Unsupported | Supported |
-| JSON functions | Supported: TEXT storage plus JSON1 scalar functions (including `json_array_length` with one path) and `json_group_array`; no `JSONB` or `->`/`->>` | Available with SQLite JSON support | Supported |
+| JSON functions | Supported: TEXT storage, JSON1 scalar functions (including `json_array_length` with one path), `json_group_array`, and `->`/`->>`; no binary `JSONB` | Available with SQLite JSON support | Supported |
 | Window functions | Partial; `ROW_NUMBER()` only | Supported | Supported |
 
 ## Transactions

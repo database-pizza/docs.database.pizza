@@ -28,7 +28,7 @@ Constraints in PizzaSQL fall into two camps: the ones that are actually implemen
 - `DEFAULT expr` is evaluated when the table is created, then stored and applied to inserted rows that omit the column.
 - Because it's evaluated at DDL time, only constant expressions are useful. There is no `DEFAULT (expr)` re-evaluation per row.
 - A non-constant default (`CURRENT_TIMESTAMP`, `datetime('now')`, a scalar function call, a column reference) is **rejected at DDL with SQLSTATE `0A000`**. Accepting it would silently freeze one value for the life of the table. Declare the column without a default and supply a fresh value on each `INSERT`.
-- A constant `DEFAULT` on `ADD COLUMN` applies to later inserts only; existing rows are not backfilled. See [ALTER TABLE](/sql-reference/statements/#alter-table).
+- A constant `DEFAULT` on `ADD COLUMN` backfills existing rows and applies to later inserts. `NOT NULL` without a default on a non-empty table fails with `23502`; `UNIQUE` is validated during the same operation and fails with `23505` on duplicates. See [ALTER TABLE](/sql-reference/statements/#alter-table).
 
 ### AUTOINCREMENT
 
