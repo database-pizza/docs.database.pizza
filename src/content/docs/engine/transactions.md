@@ -3,7 +3,7 @@ title: Transactions
 description: How PizzaSQL stages DML, detects concurrent changes, and commits with an optimistic compare-and-batch transaction model.
 ---
 
-PizzaSQL supports `BEGIN`, `COMMIT`, `ROLLBACK`, `SAVEPOINT`, `RELEASE`, and `ROLLBACK TO SAVEPOINT` for data manipulation. Transactions stage writes in the session and validate observed data when committing. This is not PostgreSQL MVCC, and schema changes are not transactional.
+PizzaSQL supports `BEGIN`, `COMMIT`, `ROLLBACK`, `SAVEPOINT`, `RELEASE`, and `ROLLBACK TO SAVEPOINT`. Transactions stage data and schema changes in the session and validate observed data when committing. This is not PostgreSQL MVCC.
 
 ## The model: staged writes and optimistic validation
 
@@ -45,7 +45,7 @@ COMMIT;                -- keeps the first insert
 
 - **DML is staged until commit.** An open transaction's data writes are visible to that session through its overlay and are not published as independent storage operations.
 - **Conflicts are optimistic.** Another connection can continue working while a transaction is open. A transaction that observed stale rows or table generations can fail at commit and should be retried.
-- **DDL is not transactional.** `CREATE TABLE`, `DROP TABLE`, `ALTER TABLE`, `CREATE INDEX`, and `DROP INDEX` write through the schema manager rather than the transaction overlay. Rolling back does **not** undo DDL executed inside a transaction.
+- **DDL is transactional inside an explicit transaction.** `CREATE TABLE`, `DROP TABLE`, `ALTER TABLE`, `CREATE INDEX`, and `DROP INDEX` are staged in the session overlay: the session sees them immediately, other sessions do not see them until `COMMIT`, and `ROLLBACK` (including `ROLLBACK TO SAVEPOINT`) reverts them. Autocommit DDL still applies immediately. A transactional DDL commit publishes catalog and rows in one compare-batch; a `DROP`/`RENAME` of a very large table above the batch limit (65,535 operations or 64 MiB) fails early with a clear error.
 - **This is not MVCC.** PizzaSQL does not provide PostgreSQL snapshots, row locks, or the full PostgreSQL isolation-level model.
 
 ## Failed transactions over the wire
@@ -65,6 +65,6 @@ On the PostgreSQL protocol, the connection tracks transaction state. If a statem
 ## Practical guidance
 
 - Keep transactions short to reduce the chance of a serialization conflict.
-- Do not rely on rolling back DDL — migrate schema outside of transactions, or test-and-recover manually.
+- You can roll back DDL inside a transaction, but keep very large migrations in bounded steps: a transactional `DROP`/`RENAME` of a huge table hits the batch ceiling and fails at the pre-flight check.
 - Retry a transaction when the PostgreSQL connection returns SQLSTATE `40001`.
 - Prefer the PostgreSQL connection path for anything that needs multi-statement atomicity on the managed service.

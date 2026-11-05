@@ -112,7 +112,7 @@ ALTER TABLE table RENAME COLUMN old TO new;
 - `DROP COLUMN` rewrites **every remaining row** to remove the field, so its cost is proportional to table size and it holds the table gate for the duration. It also leaves index metadata that references the dropped column untouched; drop those indexes first or recreate them afterwards. The primary-key column cannot be dropped.
 - `RENAME COLUMN` rewrites every row key and rewrites the stored definitions of every plain-column index on the table (single, composite, unique) in one schema update, so `ON CONFLICT`, unique enforcement, and `index_info`/`sqlite_master` follow the new name. Index names are unchanged. A rename that an **expression index** depends on is rejected with `0A000` instead of silently leaving the expression stale: drop the index, rename the column, then recreate it. Views and generated-column SQL are still not rewritten. `RENAME TO` is schema-only.
 - `ALTER TABLE ADD COLUMN ... DEFAULT expr` accepts the same constants and clock whitelist as `CREATE TABLE`. A constant backfills its value; a clock default is evaluated once for the `ALTER` statement and backfills every existing row.
-- DDL is not transactional and is not rolled back by `ROLLBACK`; a failed multi-step migration must be repaired explicitly.
+- Inside an explicit transaction, DDL is transactional: statements are visible to that session, invisible to others until `COMMIT`, and reverted by `ROLLBACK` (including `ROLLBACK TO SAVEPOINT`). Autocommit DDL applies immediately. A transactional DDL commit publishes catalog and rows in one compare-batch; a `DROP`/`RENAME` above the batch limit fails early with a clear error.
 
 ## CREATE / DROP INDEX and VIEW
 
@@ -139,7 +139,7 @@ RELEASE name;
 ROLLBACK TO name;
 ```
 
-- Transactions stage DML and use optimistic compare-and-batch validation at commit. They are not PostgreSQL MVCC, and DDL is not transactional. See [Transactions](/engine/transactions/).
+- Transactions stage DML and DDL and use optimistic compare-and-batch validation at commit. They are not PostgreSQL MVCC. See [Transactions](/engine/transactions/).
 - `SAVEPOINT` outside a transaction implicitly starts one.
 - On the **managed HTTP endpoint**, transaction statements are rejected with `501`. Over the **PostgreSQL wire proxy**, transactions are forwarded and work normally.
 

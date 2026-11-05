@@ -63,7 +63,7 @@ This split is why index definitions survive a restart but their entries must be 
 
 ## Transactions and storage
 
-Transactions stage data writes in a SQL-session overlay. At `COMMIT`, PizzaSQL sends observed versions and staged mutations to PizzaKV as one compare-and-batch request; stale observations produce a serialization conflict. `ROLLBACK` discards the overlay before it reaches storage. DDL bypasses this transaction overlay and is not rolled back. See [Transactions](/engine/transactions/).
+Transactions stage data writes in a SQL-session overlay. At `COMMIT`, PizzaSQL sends observed versions and staged mutations to PizzaKV as one compare-and-batch request; stale observations produce a serialization conflict. `ROLLBACK` discards the overlay before it reaches storage. DDL is staged in the same session overlay and published with the commit, so `ROLLBACK` reverts it too. See [Transactions](/engine/transactions/).
 
 ## The managed service's storage
 

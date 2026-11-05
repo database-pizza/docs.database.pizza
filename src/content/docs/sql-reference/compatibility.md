@@ -65,12 +65,12 @@ Do not rely on the following behavior yet:
 
 - `CHECK` constraints are enforced on the core write paths (SQLSTATE `23514`; NULL/unknown passes) and are restricted to deterministic, subquery-free expressions over unqualified row columns. Foreign keys are enforced (SQLSTATE `23503`); the parent columns must be a primary key or unique index, composite keys follow `MATCH SIMPLE`, and `CASCADE`/`SET NULL`/`SET DEFAULT` are supported while `DEFERRABLE` is not. `UNIQUE` constraints and unique indexes are enforced on the core write paths under the table publication gate. Current builds retain rebuildable column-ownership caches; expression constraints still scan. Definitions and row data persist, not native durable index pages. This does not imply full SQLite or PostgreSQL concurrency semantics. `UNIQUE` is materialized only when a table is created; tables created before this support are not retroactively enforced after an upgrade.
 - Composite primary keys are rejected at DDL with SQLSTATE `0A000`; they are never silently reduced to the first column.
-- Non-constant column defaults (`DEFAULT CURRENT_TIMESTAMP`, function calls) are rejected at DDL with `0A000`; there is no per-INSERT default evaluation.
+- Column defaults accept constants and the clock whitelist (`CURRENT_TIMESTAMP`, `CURRENT_DATE`, `CURRENT_TIME`, `datetime('now')`, `date('now')`, `time('now')`), evaluated once per statement at write time. Other non-constant defaults are rejected with `0A000`.
 - Array parameters and `ANY`/`ALL` predicates are rejected with `0A000`; rewrite them as `IN (...)` with individual parameters.
 - `SELECT ... FOR UPDATE` and `NOWAIT`/`SKIP LOCKED` are rejected with `0A000`; transactions are optimistic and have no row locks.
 - `RIGHT JOIN`, `FULL JOIN`, `JOIN ... USING`, and `NATURAL JOIN` may parse but do not execute correctly.
-- DDL changes such as `CREATE TABLE` are not rolled back by `ROLLBACK`.
-- Result column type metadata is only reported for single-table direct column projections; expressions, joins, and unknown columns are still reported as `TEXT`.
+- DDL executed inside an explicit transaction is staged and reverted by `ROLLBACK`; autocommit DDL applies immediately.
+- Result column type metadata is reported for direct projections and common expressions (aggregates, comparisons, literals, CASTs); derived tables and CTEs still fall back to `TEXT`.
 
 Unsupported syntax normally returns an error. The items above are called out separately because accepting syntax without enforcing its semantics can cause incorrect application behavior.
 
