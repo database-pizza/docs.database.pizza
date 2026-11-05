@@ -3,7 +3,7 @@ title: Constraints
 description: What PRIMARY KEY, NOT NULL, DEFAULT, UNIQUE, CHECK, and FOREIGN KEY actually do in PizzaSQL — and which ones are rejected.
 ---
 
-Constraints in PizzaSQL fall into two camps: the ones that are actually implemented, and the ones that merely parse. This page is deliberately blunt about the difference, because silently assuming a `CHECK` or `FOREIGN KEY` constraint is enforced will corrupt data. `UNIQUE` is now enforced on the core write paths, with caveats described below.
+Constraints in PizzaSQL fall into two camps: the ones that are actually implemented, and the ones that merely parse. This page is deliberately blunt about the difference, because silently assuming a `FOREIGN KEY` constraint is enforced will corrupt data. `UNIQUE` and `CHECK` are enforced on the core write paths, with caveats described below.
 
 ## The enforced constraints
 
@@ -25,10 +25,10 @@ Constraints in PizzaSQL fall into two camps: the ones that are actually implemen
 
 ### DEFAULT
 
-- `DEFAULT expr` is evaluated when the table is created, then stored and applied to inserted rows that omit the column.
-- Because it's evaluated at DDL time, only constant expressions are useful. There is no `DEFAULT (expr)` re-evaluation per row.
-- A non-constant default (`CURRENT_TIMESTAMP`, `datetime('now')`, a scalar function call, a column reference) is **rejected at DDL with SQLSTATE `0A000`**. Accepting it would silently freeze one value for the life of the table. Declare the column without a default and supply a fresh value on each `INSERT`.
-- A constant `DEFAULT` on `ADD COLUMN` backfills existing rows and applies to later inserts. `NOT NULL` without a default on a non-empty table fails with `23502`; `UNIQUE` is validated during the same operation and fails with `23505` on duplicates. See [ALTER TABLE](/sql-reference/statements/#alter-table).
+- `DEFAULT expr` accepts constants and the write-time clock expressions `CURRENT_TIMESTAMP`, `CURRENT_DATE`, `CURRENT_TIME`, `datetime('now')`, `date('now')`, and `time('now')`, with or without parentheses.
+- A constant default is evaluated at DDL time and stored as its value. A clock default is stored as SQL text and evaluated **once per statement at write time**, so it is never frozen at DDL time: two inserts get different values, while a multi-row insert shares one. An explicit `NULL` still wins over the default.
+- Any other non-constant default (`lower('X')`, `random()`, a column reference, a subquery) is rejected at DDL with SQLSTATE `0A000`.
+- On `ADD COLUMN`, a constant default backfills existing rows with that value, and a clock default is evaluated once for the statement and written to every existing row. `NOT NULL` without a default on a non-empty table fails with `23502`; `UNIQUE` fails with `23505`; `CHECK` fails with `23514`. See [ALTER TABLE](/sql-reference/statements/#alter-table).
 
 ### AUTOINCREMENT
 
@@ -61,21 +61,16 @@ The wire protocol reports a duplicate as SQLSTATE `23505` with the violated inde
 
 Do not assume an existing table's uniqueness is enforced just because the engine now supports `UNIQUE`.
 
-## The rejected constraints
+## CHECK and FOREIGN KEY
 
-`CHECK` and `FOREIGN KEY` are **rejected at DDL** with SQLSTATE `0A000` instead of being accepted and discarded:
+`CHECK` is accepted at `CREATE TABLE` and `ALTER TABLE ADD COLUMN`, inline or table-level, named or unnamed, and **enforced** on `INSERT`, multi-row `INSERT`, `UPDATE`, and `ON CONFLICT DO UPDATE`. A FALSE result is SQLSTATE `23514`; a NULL or unknown result passes (SQL three-valued logic).
 
-| Constraint | Status | What to do instead |
-| --- | --- | --- |
-| `CHECK (expr)` | Rejected at `CREATE TABLE` and `ALTER TABLE ADD COLUMN` | Validate in the application, or enforce through a unique/foreign-key-free design (a partial unique index is not available either). |
-| `FOREIGN KEY ... REFERENCES ...` | Rejected, including inline `REFERENCES`, table-level `FOREIGN KEY`, named constraints, and `ON DELETE`/`ON UPDATE` actions | Enforce referential integrity in the application; cascades are not implemented. |
+Predicates are restricted to deterministic, subquery-free expressions over unqualified columns of the same row. Subqueries, aggregates, window functions, qualified references, and non-deterministic functions are rejected with `0A000`, as is an unknown column. Adding a `CHECK` to a populated table validates the existing rows (against declared defaults) and rejects the DDL if any row violates it. The constraint appears in `sqlite_master`/`sqlite_schema` table SQL; `pg_constraint` and `information_schema.check_constraints` are not emulated.
 
-This is deliberate: accepting the clause while never evaluating it made applications believe a constraint existed. A migration that carries `CHECK`/`FOREIGN KEY` from PostgreSQL or SQLite now fails loudly at the DDL statement and must be rewritten. Gogs and Vikunja declare neither clause; GoatCounter's retired schema does, so a fresh GoatCounter bootstrap is not supported on this engine build.
-
-Constraints that remain accepted and enforced are `PRIMARY KEY` (single column), `NOT NULL`, `UNIQUE`/unique indexes, and constant `DEFAULT`s. Duplicate values are allowed in any other column.
+`FOREIGN KEY ... REFERENCES ...` is still **rejected at DDL** with SQLSTATE `0A000`, including inline `REFERENCES`, table-level `FOREIGN KEY`, named constraints, and `ON DELETE`/`ON UPDATE` actions. Enforce referential integrity in the application; cascades are not implemented.
 
 ## Why this matters for migrations
 
-SQLite- and PostgreSQL-flavoured schemas often lean on `UNIQUE`, `CHECK`, and `FOREIGN KEY` for integrity. `UNIQUE` imports into enforced unique indexes, but `CHECK`/`FOREIGN KEY` are rejected. Rewrite those DDL statements and add application-level checks for anything that must stay referentially consistent before pointing a migrator at PizzaSQL.
+SQLite- and PostgreSQL-flavoured schemas often lean on `UNIQUE`, `CHECK`, and `FOREIGN KEY` for integrity. `UNIQUE` imports into enforced unique indexes and `CHECK` is now enforced, but `FOREIGN KEY` is rejected. Rewrite foreign-key declarations and add application-level checks for referential integrity before pointing a migrator at PizzaSQL.
 
 See [Compatibility](/sql-reference/compatibility/) for the wider gap list, and [Indexes](/engine/indexes/) for how `CREATE INDEX`/`UNIQUE INDEX` actually behave at the storage layer.

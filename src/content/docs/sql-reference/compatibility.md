@@ -63,7 +63,7 @@ Use the engine identity and capability document to identify the running build.
 
 Do not rely on the following behavior yet:
 
-- `CHECK` and foreign-key declarations are rejected at DDL with SQLSTATE `0A000`; they are never accepted and discarded. `UNIQUE` constraints and unique indexes are enforced on the core write paths under the table publication gate. Current builds retain rebuildable column-ownership caches; expression constraints still scan. Definitions and row data persist, not native durable index pages. This does not imply full SQLite or PostgreSQL concurrency semantics. `UNIQUE` is materialized only when a table is created; tables created before this support are not retroactively enforced after an upgrade.
+- `CHECK` constraints are enforced on the core write paths (SQLSTATE `23514`; NULL/unknown passes) and are restricted to deterministic, subquery-free expressions over unqualified row columns. Foreign-key declarations are rejected at DDL with SQLSTATE `0A000`; they are never accepted and discarded. `UNIQUE` constraints and unique indexes are enforced on the core write paths under the table publication gate. Current builds retain rebuildable column-ownership caches; expression constraints still scan. Definitions and row data persist, not native durable index pages. This does not imply full SQLite or PostgreSQL concurrency semantics. `UNIQUE` is materialized only when a table is created; tables created before this support are not retroactively enforced after an upgrade.
 - Composite primary keys are rejected at DDL with SQLSTATE `0A000`; they are never silently reduced to the first column.
 - Non-constant column defaults (`DEFAULT CURRENT_TIMESTAMP`, function calls) are rejected at DDL with `0A000`; there is no per-INSERT default evaluation.
 - Array parameters and `ANY`/`ALL` predicates are rejected with `0A000`; rewrite them as `IN (...)` with individual parameters.
@@ -132,7 +132,7 @@ Unsupported syntax normally returns an error. The items above are called out sep
 | `NOT NULL` | Supported on final insert/update rows; `23502` on current builds | Supported | Supported |
 | `UNIQUE` constraints | Enforced on core write paths; cached column ownership / expression validation, with legacy-table and transaction caveats | Supported | Supported |
 | Unique indexes | Enforced on core write paths; derived ownership cache for columns, scans for expressions | Supported | Supported |
-| `CHECK` constraints | Rejected with `0A000` | Supported | Supported |
+| `CHECK` constraints | Supported; enforced with `23514`, deterministic single-row expressions only | Supported | Supported |
 | Foreign keys | Rejected with `0A000`; cascades are not implemented | Supported when enabled | Supported |
 | Literal defaults | Supported (constant values) | Supported | Supported |
 | Expression defaults | Rejected with `0A000` | Supported | Supported |
@@ -281,7 +281,7 @@ There is no committed automated Vikunja integration test yet, so this is a manua
 1. Use explicit `INNER`, `LEFT`, and `CROSS` joins with `ON` conditions.
 2. Enforce checks and referential integrity in the application. Uniqueness is enforced on the core write paths, but keep application-level checks for anything with stricter concurrency or DDL needs.
 3. Use a single-column primary key.
-4. Avoid `AUTOINCREMENT`, expression defaults, and `DEFAULT CURRENT_TIMESTAMP` for semantic behavior.
+4. Avoid `AUTOINCREMENT` for semantic behavior. A `DEFAULT CURRENT_TIMESTAMP` or `datetime('now')` is evaluated once per statement, not per row.
 5. Use `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX`; verify other functions against the [function reference](/sql-reference/functions/).
 6. Test your exact driver and migration tool before deploying an application.
 
