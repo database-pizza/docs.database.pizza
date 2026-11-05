@@ -63,7 +63,7 @@ Use the engine identity and capability document to identify the running build.
 
 Do not rely on the following behavior yet:
 
-- `CHECK` constraints are enforced on the core write paths (SQLSTATE `23514`; NULL/unknown passes) and are restricted to deterministic, subquery-free expressions over unqualified row columns. Foreign keys are enforced immediately (SQLSTATE `23503`); the parent columns must be a primary key or unique index, composite keys follow `MATCH SIMPLE`, and cascades are not implemented. `UNIQUE` constraints and unique indexes are enforced on the core write paths under the table publication gate. Current builds retain rebuildable column-ownership caches; expression constraints still scan. Definitions and row data persist, not native durable index pages. This does not imply full SQLite or PostgreSQL concurrency semantics. `UNIQUE` is materialized only when a table is created; tables created before this support are not retroactively enforced after an upgrade.
+- `CHECK` constraints are enforced on the core write paths (SQLSTATE `23514`; NULL/unknown passes) and are restricted to deterministic, subquery-free expressions over unqualified row columns. Foreign keys are enforced (SQLSTATE `23503`); the parent columns must be a primary key or unique index, composite keys follow `MATCH SIMPLE`, and `CASCADE`/`SET NULL`/`SET DEFAULT` are supported while `DEFERRABLE` is not. `UNIQUE` constraints and unique indexes are enforced on the core write paths under the table publication gate. Current builds retain rebuildable column-ownership caches; expression constraints still scan. Definitions and row data persist, not native durable index pages. This does not imply full SQLite or PostgreSQL concurrency semantics. `UNIQUE` is materialized only when a table is created; tables created before this support are not retroactively enforced after an upgrade.
 - Composite primary keys are rejected at DDL with SQLSTATE `0A000`; they are never silently reduced to the first column.
 - Non-constant column defaults (`DEFAULT CURRENT_TIMESTAMP`, function calls) are rejected at DDL with `0A000`; there is no per-INSERT default evaluation.
 - Array parameters and `ANY`/`ALL` predicates are rejected with `0A000`; rewrite them as `IN (...)` with individual parameters.
@@ -133,7 +133,7 @@ Unsupported syntax normally returns an error. The items above are called out sep
 | `UNIQUE` constraints | Enforced on core write paths; cached column ownership / expression validation, with legacy-table and transaction caveats | Supported | Supported |
 | Unique indexes | Enforced on core write paths; derived ownership cache for columns, scans for expressions | Supported | Supported |
 | `CHECK` constraints | Supported; enforced with `23514`, deterministic single-row expressions only | Supported | Supported |
-| Foreign keys | Supported; immediate `23503`, parent must be PK/unique, `MATCH SIMPLE`, no cascades | Supported when enabled | Supported |
+| Foreign keys | Supported; `23503`, parent must be PK/unique, `MATCH SIMPLE`, `CASCADE`/`SET NULL`/`SET DEFAULT`, no `DEFERRABLE` | Supported when enabled | Supported |
 | Literal defaults | Supported (constant values) | Supported | Supported |
 | Expression defaults | Rejected with `0A000` | Supported | Supported |
 | `DEFAULT CURRENT_TIMESTAMP` | Rejected with `0A000`; no per-row evaluation | Supported | Supported |
