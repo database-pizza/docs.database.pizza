@@ -64,9 +64,9 @@ Use the engine identity and capability document to identify the running build.
 Do not rely on the following behavior yet:
 
 - `CHECK` constraints are enforced on the core write paths (SQLSTATE `23514`; NULL/unknown passes) and are restricted to deterministic, subquery-free expressions over unqualified row columns. Foreign keys are enforced (SQLSTATE `23503`); the parent columns must be a primary key or unique index, composite keys follow `MATCH SIMPLE`, and `CASCADE`/`SET NULL`/`SET DEFAULT` are supported while `DEFERRABLE` is not. `UNIQUE` constraints and unique indexes are enforced on the core write paths under the table publication gate. Current builds retain rebuildable column-ownership caches; expression constraints still scan. Definitions and row data persist, not native durable index pages. This does not imply full SQLite or PostgreSQL concurrency semantics. `UNIQUE` is materialized only when a table is created; tables created before this support are not retroactively enforced after an upgrade.
-- Composite primary keys are rejected at DDL with SQLSTATE `0A000`; they are never silently reduced to the first column.
+- Composite primary keys (`PRIMARY KEY (a, b)`) are supported; key columns are implicitly `NOT NULL` and a missing component returns `23502`.
 - Column defaults accept constants and the clock whitelist (`CURRENT_TIMESTAMP`, `CURRENT_DATE`, `CURRENT_TIME`, `datetime('now')`, `date('now')`, `time('now')`), evaluated once per statement at write time. Other non-constant defaults are rejected with `0A000`.
-- Array parameters and `ANY`/`ALL` predicates are rejected with `0A000`; rewrite them as `IN (...)` with individual parameters.
+- One-dimensional arrays are supported for `TEXT[]`, `VARCHAR(n)[]`, `INTEGER[]`, `BIGINT[]`, `SMALLINT[]`, `BOOLEAN[]`, `REAL[]`, `DOUBLE PRECISION[]`, and `NUMERIC[]`. `expr = ANY(array)` and `expr <> ALL(array)` follow three-valued logic. Multidimensional arrays, other element types, binary array parameters, and scalar `unnest` are rejected with `0A000`; see [Statements](/sql-reference/statements/).
 - `SELECT ... FOR UPDATE` and `NOWAIT`/`SKIP LOCKED` are rejected with `0A000`; transactions are optimistic and have no row locks.
 - `RIGHT JOIN`, `FULL JOIN`, `JOIN ... USING`, and `NATURAL JOIN` may parse but do not execute correctly.
 - DDL executed inside an explicit transaction is staged and reverted by `ROLLBACK`; autocommit DDL applies immediately.
@@ -135,9 +135,9 @@ Unsupported syntax normally returns an error. The items above are called out sep
 | `CHECK` constraints | Supported; enforced with `23514`, deterministic single-row expressions only | Supported | Supported |
 | Foreign keys | Supported; `23503`, parent must be PK/unique, `MATCH SIMPLE`, `CASCADE`/`SET NULL`/`SET DEFAULT`, no `DEFERRABLE` | Supported when enabled | Supported |
 | Literal defaults | Supported (constant values) | Supported | Supported |
-| Expression defaults | Rejected with `0A000` | Supported | Supported |
-| `DEFAULT CURRENT_TIMESTAMP` | Rejected with `0A000`; no per-row evaluation | Supported | Supported |
-| Array parameters and `ANY`/`ALL` | Rejected with `0A000` | Not applicable | Supported |
+| Expression defaults | Supported for constants and the clock whitelist (evaluated once per statement); other expressions rejected with `0A000` | Supported | Supported |
+| `DEFAULT CURRENT_TIMESTAMP` | Supported; evaluated once per statement at write time | Supported | Supported |
+| Array parameters and `ANY`/`ALL` | Supported in text format, one-dimensional arrays only; binary arrays rejected with `0A000` | Not applicable | Supported |
 | `AUTOINCREMENT` | Partial; accepted without distinct SQLite semantics | Supported | Not applicable |
 | Identity and serial columns | Unsupported | Not applicable | Supported |
 | Generated columns | Unsupported | Supported | Supported |

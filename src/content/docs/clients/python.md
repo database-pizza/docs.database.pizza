@@ -62,7 +62,7 @@ engine = create_engine(
 )
 ```
 
-Keep your models to the SQLite-compatible subset (`Integer` primary keys with autoincrement, `String`/`Text`, no `ARRAY`/`JSONB`), and test your exact ORM and migration path before deploying. See [Compatibility](/sql-reference/compatibility/).
+Keep your models to the SQLite-compatible subset (`Integer` primary keys with autoincrement, `String`/`Text`, no `JSONB`; one-dimensional arrays are supported), and test your exact ORM and migration path before deploying. See [Compatibility](/sql-reference/compatibility/).
 
 ## With `requests` (HTTP)
 
