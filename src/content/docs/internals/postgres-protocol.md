@@ -43,10 +43,14 @@ Many drivers run introspection queries on connect. PizzaSQL intercepts and emula
 - `SELECT version()` → `PostgreSQL 14.0 (PizzaSQL)`
 - `SELECT current_user` → the connection's `user` parameter
 - `SHOW server_version` / `server_encoding` / `client_encoding`
-- `SELECT ... FROM information_schema.tables / columns / table_constraints / key_column_usage`
-- `SELECT ... FROM pg_tables / pg_indexes`
+- `pg_catalog`: `pg_class`, `pg_namespace`, `pg_attribute`, `pg_type`, `pg_index`, `pg_constraint`, `pg_attrdef`, `pg_database`, `pg_tablespace`, `pg_proc`, `pg_am`, `pg_description`, `pg_tables`, `pg_indexes`
+- `information_schema`: `tables`, `columns`, `table_constraints`, `key_column_usage`, `referential_constraints`, `constraint_column_usage`, `schemata`, `sequences`, `views`
+- Catalog SELECTs support joins, filters, aggregates, ordering, and limits; rows reflect the session's current schema, including DDL staged in an open transaction
+- `regclass`/`regtype` casts, `to_regclass`/`to_regtype`, `format_type`, `pg_table_is_visible`, `pg_get_indexdef`, `pg_get_constraintdef`, `pg_get_expr`, `current_schema`, `current_database`, `current_setting`, and `SET`/`SHOW search_path`
 - `SELECT ... FROM sqlite_master` / `sqlite_schema` — read-only synthesized rows for SQLite migrators
 - `PRAGMA index_list` / `index_info` / `table_xinfo` — answered from the durable schema
+
+Catalog relations are read-only; writes return `0A000`. Synthetic OIDs are deterministic per database and shared across the relations, so ORM joins on OIDs work. Only `public` exists as a user schema, alongside the emulated `pg_catalog` and `information_schema`.
 
 These are generated from the PizzaSQL schema, not a real PostgreSQL or SQLite catalog. Filtering (`WHERE table_name = 'x'`, `WHERE schemaname = ...`) is recognized for simple equality patterns; other clauses (joins, subqueries against catalog tables) are not supported. The catalog is a **read-only compatibility shim**, not a queryable schema.
 

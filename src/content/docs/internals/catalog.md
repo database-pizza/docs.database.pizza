@@ -56,3 +56,17 @@ The `DatabaseManager` maps database names to `DatabaseInstance`s, each with its 
 ## Schema operations
 
 `SchemaManager` methods mutate the durable schema and the cache atomically under a lock, and bump the version counter so other executors resync. `CREATE TABLE`, `ALTER TABLE` (add/drop/rename column, rename table), `RENAME COLUMN`, and index operations all funnel through here. Renaming a column updates the schema's `PrimaryKey` reference if it matched, but does **not** rewrite index definitions that referenced the old column name.
+
+## PostgreSQL catalog emulation
+
+Clients that connect over the PostgreSQL wire usually introspect the server instead of the SQLite catalog. PizzaSQL synthesizes a read-only PostgreSQL catalog from the durable schema on each statement.
+
+**Relations.** `pg_catalog` exposes `pg_class`, `pg_namespace`, `pg_attribute`, `pg_type`, `pg_index`, `pg_constraint`, `pg_attrdef`, `pg_database`, `pg_tablespace`, `pg_proc`, `pg_am`, `pg_description`, `pg_tables`, and `pg_indexes`. `information_schema` exposes `tables`, `columns`, `table_constraints`, `key_column_usage`, `referential_constraints`, `constraint_column_usage`, `schemata`, `sequences`, and `views`. Catalog SELECTs support filters, ordering, aggregates, and joins, so ORM-shaped queries such as joining `pg_class` → `pg_attribute` → `pg_type` work.
+
+**OIDs.** Object OIDs are deterministic FNV-1a values in the normal-object range and are shared across relations: the same table has one OID in `pg_class`, `pg_attribute.attrelid`, `pg_index.indrelid`, and `pg_constraint.conrelid`. Tables, indexes, and views with the same name keep distinct OIDs because the relation kind is part of the identity.
+
+**Types and helpers.** `regclass` and `regtype` cast between names and OIDs, with `to_regclass`/`to_regtype` returning `NULL` for missing names; unknown names in a cast return `42P01`. Supported helpers include `format_type`, `pg_table_is_visible`, `pg_get_indexdef`, `pg_get_constraintdef`, `pg_get_expr`, `current_schema`, `current_database`, `current_setting`, `pg_get_serial_sequence`, `obj_description`, `col_description`, `has_table_privilege`, and `pg_get_userbyid`.
+
+**Schemas and visibility.** There are no user-defined schemas. `public` (OID 2200) is the only user schema, alongside the emulated `pg_catalog` (11) and `information_schema` (13207). `SET`/`SHOW search_path` are accepted; `SET LOCAL` is transaction-scoped and reverts on `ROLLBACK`. Catalog rows reflect DDL staged in the current transaction and are invisible to other sessions until commit.
+
+Catalog relations are read-only: `INSERT`, `UPDATE`, `DELETE`, and DDL targeting them fail with `0A000`. Catalog evaluation is snapshotted before a locked scan so a `regclass` cast or catalog subquery in `UPDATE`/`DELETE ... WHERE` cannot re-enter the session lock.

@@ -210,11 +210,11 @@ PostgreSQL wire compatibility allows some PostgreSQL clients to connect. It does
 | Text parameters and results | Supported | Not applicable | Supported |
 | Binary parameters | Partial; limited boolean and integer support | Not applicable | Supported |
 | Binary results | Supported for bool, integers, floats, text, bytea, jsonb, and one-dimensional arrays; other OIDs and unrepresentable values fail cleanly | Not applicable | Supported |
-| Correct result type OIDs | Partial; single-table direct column projections report typed OIDs, expressions and joins report `TEXT` | Not applicable | Supported |
+| Correct result type OIDs | Partial; direct column projections (including arrays and jsonb) report typed OIDs, derived tables and CTEs fall back to `TEXT` | Not applicable | Supported |
 | PostgreSQL TLS | Supported when the managed proxy is configured with a certificate; sslmode contract below | Not applicable | Supported |
 | PostgreSQL SCRAM and MD5 authentication | Unsupported | Not applicable | Supported |
-| `information_schema` | Partial emulation | Unsupported | Supported |
-| `pg_catalog` | Unsupported | Unsupported | Supported |
+| `information_schema` | Supported for tables, columns, constraints, keys, schemata, sequences, and views | Unsupported | Supported |
+| `pg_catalog` | Supported for the main relations (`pg_class`, `pg_attribute`, `pg_type`, `pg_index`, `pg_constraint`, `pg_attrdef`, `pg_namespace`, `pg_proc`, `pg_tables`, `pg_indexes`) and introspection functions | Unsupported | Supported |
 | Query cancellation | Unsupported | Not applicable | Supported |
 | `COPY` | Unsupported | Not applicable | Supported |
 | `LISTEN` and `NOTIFY` | Supported; no durable replay | Not applicable | Supported |
@@ -223,7 +223,7 @@ PostgreSQL wire compatibility allows some PostgreSQL clients to connect. It does
 | ORMs and migration frameworks | Unverified | Varies | Supported |
 | `psql` schema introspection commands | Partial | Not applicable | Supported |
 
-Because the wire is PostgreSQL-compatible, drivers may issue introspection queries such as `information_schema`, `pg_catalog`, `SELECT version()`, or `SHOW server_version` on connection. PizzaSQL emulates a small subset of these so basic clients can start. SQLite-style migrators are also accommodated with a read-only `sqlite_master`/`sqlite_schema` emulation and the `index_list`, `index_info`, and `table_xinfo` pragmas. See [PostgreSQL protocol](/internals/postgres-protocol/).
+Because the wire is PostgreSQL-compatible, drivers may issue introspection queries such as `information_schema`, `pg_catalog`, `SELECT version()`, or `SHOW server_version` on connection. The emulated catalog supports ORM-style joins across `pg_class`/`pg_namespace`/`pg_attribute`/`pg_type`/`pg_index`/`pg_constraint` with deterministic shared OIDs, `regclass`/`regtype`, and the usual `pg_get_*def` helpers; see [Catalog & schema](/internals/catalog/) for the exact surface. There are no user-defined schemas: `public` is the only user schema. SQLite-style migrators are also accommodated with a read-only `sqlite_master`/`sqlite_schema` emulation and the `index_list`, `index_info`, and `table_xinfo` pragmas. See [PostgreSQL protocol](/internals/postgres-protocol/).
 
 ## Managed service differences
 
