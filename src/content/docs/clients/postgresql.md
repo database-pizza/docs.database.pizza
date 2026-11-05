@@ -114,7 +114,7 @@ Use the placeholders your driver binds natively: `$1`, `$2` for `pg`/pgx and `%s
 - `TEXT`, not a length-enforced `VARCHAR(n)`.
 - No PostgreSQL schemas, roles, `ARRAY`, `JSONB`, or `ENUM` types.
 - `UNIQUE` and unique indexes are enforced in current source builds; duplicates are `23505`. Older tables may need explicit index creation. See [Constraints](/sql-reference/constraints/).
-- `CHECK` is supported (enforced with `23514`; deterministic single-row expressions only). Foreign-key declarations and unsupported non-constant defaults are rejected with `0A000`.
+- `CHECK` is supported (enforced with `23514`; deterministic single-row expressions only). Foreign keys are supported and enforced immediately with `23503` (parent must be PK/unique, no cascades). Unsupported non-constant defaults are rejected with `0A000`.
 - `ANY`/`ALL` array predicates are rejected with `0A000`; use a bound scalar `IN` list instead.
 
 ## Transactions, discovery, and quotas
