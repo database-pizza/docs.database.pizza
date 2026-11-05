@@ -50,7 +50,7 @@ PizzaSQL is **SQLite-compatible**, not PostgreSQL. The most common surprises whe
 
 - **`SERIAL` and sequences** don't exist — use `INTEGER PRIMARY KEY`. Values are assigned automatically when omitted.
 - **`VARCHAR(n)`** is accepted but not length-enforced — use `TEXT`.
-- **No schemas, roles, or `ENUM`** types. One-dimensional arrays (`TEXT[]`, `INTEGER[]`, …) and native `JSONB` are supported; multidimensional arrays and jsonpath are not.
+- **No user-defined schemas, roles, or `ENUM`** types; `public` is the only user schema. One-dimensional arrays (`TEXT[]`, `INTEGER[]`, …) and native `JSONB` are supported; multidimensional arrays and jsonpath are not.
 - **No `CREATE DATABASE`/`DROP DATABASE`** from a client — databases are managed in the dashboard (and require the platform's `create_database` scope, not a client key).
 - **Type affinity** is SQLite-style, so column types are hints more than strict constraints.
 
