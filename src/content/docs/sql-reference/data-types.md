@@ -41,7 +41,7 @@ There is no `SERIAL`, `ENUM`, or user-defined type. There are no schemas. `UUID`
 
 `JSON` and `JSONB` are both accepted as column type names, with different behavior. `JSON` stores text and behaves like a `TEXT` column with the JSON1 functions. `JSONB` is native: values are validated and canonicalized on write (object keys sorted, duplicate keys last-wins, numbers normalized), stored as canonical text, and reported as OID 3802 over the wire. `JSONB` supports `->`, `->>`, `#>`, `#>>`, `@>`, `<@`, `?`, `?|`, `?&`, `||`, `-`, and `#-`, plus functions such as `jsonb_typeof`, `jsonb_set`, and `jsonb_each`. Equality is canonical-text equality, so `1` and `1.0` are equal after normalization. See [Functions](/sql-reference/functions/#jsonb).
 
-One-dimensional array types are supported for `TEXT[]`, `VARCHAR(n)[]`, `INTEGER[]`, `BIGINT[]`, `SMALLINT[]`, `BOOLEAN[]`, `REAL[]`, `DOUBLE PRECISION[]`, and `NUMERIC[]`. `id = ANY($1)` and `expr <> ALL($1)` work, including text-format array parameters over the PostgreSQL wire. Multidimensional arrays, other element types, and binary array parameters are rejected with `0A000`. See [Statements](/sql-reference/statements/).
+One-dimensional array types are supported for `TEXT[]`, `VARCHAR(n)[]`, `INTEGER[]`, `BIGINT[]`, `SMALLINT[]`, `BOOLEAN[]`, `REAL[]`, `DOUBLE PRECISION[]`, and `NUMERIC[]`. `id = ANY($1)` and `expr <> ALL($1)` work, including text-format array parameters over the PostgreSQL wire. Multidimensional arrays and other element types are rejected with `0A000`; parameters accept text and PostgreSQL binary array formats. See [Statements](/sql-reference/statements/).
 
 ## How values are actually stored
 
