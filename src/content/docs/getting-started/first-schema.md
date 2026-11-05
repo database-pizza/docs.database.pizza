@@ -41,7 +41,7 @@ A few things to notice:
 - `INTEGER PRIMARY KEY` gives each row an auto-assigned integer `id` when you omit it.
 - Constant defaults such as `'free'` are supported; non-constant defaults are rejected with `0A000`. Supply timestamps in the insert with `datetime('now')` instead.
 - The index on `invoices(user_id)` is available to supported lookup paths; inspect actual query behavior rather than assuming every join uses it. See [Indexes](/engine/indexes/).
-- Current source builds enforce `UNIQUE` constraints and unique indexes; a duplicate is `23505`. Older tables with discarded declarations need an explicit unique index. Foreign-key and `CHECK` declarations are rejected with `0A000`; enforce those relationships in your application. See [Constraints](/sql-reference/constraints/).
+- Current source builds enforce `UNIQUE` constraints and unique indexes; a duplicate is `23505`. Older tables with discarded declarations need an explicit unique index. `CHECK` constraints are enforced with `23514` (NULL passes). Foreign-key declarations are rejected with `0A000`; enforce those relationships in your application. See [Constraints](/sql-reference/constraints/).
 
 Run these over HTTPS, one statement at a time, or in a non-transactional `/execute` batch. Over a **TLS-enabled** PostgreSQL deployment you can send the whole block directly; the following command fails closed if TLS is unavailable. Use HTTPS on the public service while PostgreSQL TLS is not offered (see [Connect](/getting-started/connect/)).
 
