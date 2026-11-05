@@ -112,6 +112,10 @@ recovery:
 call and a 256 MiB source. Use reviewed SQL to restore a row, table, or schema
 definition; raw index-maintenance keys are not a restore API.
 
+## Errors
+
+Failed `run_sql` calls return the engine's SQLSTATE in the tool error, both as a `code` field and in the message text, for example `42P01` for a missing table, `42601` for a syntax error, `23505`/`23503`/`23514`/`23502` for constraint violations, `42703` for an unknown column, `0A000` for unsupported features, and `22P02` for invalid input text. The HTTP query API reports the same code.
+
 ## Limits
 
 - One statement per MCP call; no transactions; 200 rows per SQL result.
