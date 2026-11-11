@@ -28,14 +28,22 @@ FATAL:  invalid_password
 
 | Status | Meaning | Typical fix |
 | --- | --- | --- |
-| `400` | Malformed JSON request body | Check the JSON and `Content-Type` header |
+| `400` | Malformed JSON request body, or SQL the engine rejected (syntax, analysis, or an unsupported feature) | Check the JSON and `Content-Type` header; read the `error` string and the SQL reference |
 | `401` | Missing or invalid API key | Verify the key, its prefix, and that it isn't revoked or expired |
 | `403` | Key lacks a required scope, or doesn't have access to this database | Check scopes in the dashboard; grant the missing one |
 | `404` | Organization, database, table, or row not found | Confirm the `org/db` slugs and the table name |
-| `409` | Conflict — e.g. a database slug already exists | Choose a different name |
-| `500` | SQL syntax, analysis, or execution error from the engine | Read the `error` string and check the SQL reference |
+| `409` | Conflict — a constraint violation, a serialization failure, or a database slug that already exists | Change the conflicting value, retry the transaction, or choose a different name |
+| `500` | Unexpected engine failure | Retry a few times; report it with the `code` if it persists |
 | `501` | Not implemented — a transaction statement over HTTP | Use the PostgreSQL protocol for transactions |
-| `503` | The database instance is unavailable or paused | Retry; check the dashboard for the instance status |
+| `503` | The database instance is unavailable or paused, or the engine is out of resources | Retry; check the dashboard for the instance status |
+
+When the engine reported one, the JSON `code` field carries its SQLSTATE, so you can branch on the failure without parsing the message:
+
+| SQLSTATE class | Status | Example |
+| --- | --- | --- |
+| `42` syntax or access rule, `22` data exception, `0A` unsupported feature | `400` | `42P01` missing table, `42601` syntax error, `0A000` unsupported DDL |
+| `23` constraint violation, `40` transaction rollback | `409` | `23505` unique violation, `40001` serialization failure |
+| `08` connection, `53` resources, `57` operator intervention, `58` system | `503` | `53300` too many connections, `57P01` shutting down |
 
 ## Authentication errors
 
